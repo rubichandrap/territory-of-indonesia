@@ -4,7 +4,7 @@ This is a dataset project that currently covering all territory of Indonesia fro
 ## How to use
 You probably only need all files in `./dist` directory to be using in your project. This dataset provides such important data, but there're two most important, which are `OSM ID` and `Coordinates`.
 
-- OSM ID used for grabing higher administration level file. For example, After you get the list of provinces, you can get `OSM ID` from one of the list item. Then use it to get the list of districts for that respective province, and so on.
+- OSM ID used for getting higher administration level file. For example, After you get the list of provinces, you can get `OSM ID` from one of the list item. Then use it to get the list of districts for that respective province, and so on.
 - Coordinates used for making a polygon of boundaries in 3rd party application such Google Maps.
 
 ## Why there are interface files
