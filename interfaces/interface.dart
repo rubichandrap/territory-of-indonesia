@@ -1,6 +1,6 @@
 class Geometry {
   String? type;
-  List<List<List<int>>>? coordinates;
+  dynamic coordinates;
 }
 
 class Properties {
@@ -13,7 +13,7 @@ class Properties {
   String? nameEN;
 }
 
-class BoundaryFeatures {
+class Features {
   String? type;
   Geometry? geometry;
   Properties? properties;
@@ -21,5 +21,5 @@ class BoundaryFeatures {
 
 class Boundaries {
   String? type;
-  List<BoundaryFeatures>? features;
+  List<Features>? features;
 }

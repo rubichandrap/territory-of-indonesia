@@ -1,6 +1,6 @@
 export interface Geometry {
   type: string;
-  coordinates: number[][][];
+  coordinates: number[][][] | number[];
 }
 
 export interface Properties {
@@ -13,7 +13,7 @@ export interface Properties {
   nameEN: string;
 }
 
-export interface BoundaryFeatures {
+export interface Features {
   type: string;
   geometry: Geometry;
   properties: Properties;
@@ -21,5 +21,5 @@ export interface BoundaryFeatures {
 
 export interface Boundaries {
   type: string;
-  features: BoundaryFeatures[];
+  features: Features[];
 }
