@@ -9,3 +9,15 @@ You probably only need all files in `./dist` directory to be using in your proje
 
 ## Why there are interface files
 I hope, these interfaces can help when you have to Marshaling these jsons, into a struct or another data typed collections.
+
+## What's next
+I'm planning to change `Coordinates` struct from `3D array` into something like:
+```json
+{
+    "coordinates": [
+        { lat: 0, lng: 0 }
+    ]
+}
+```
+
+The reason is, when you need to create Google Maps' polygon, it has to use this format to be actually working. So I think, this decision is quite reasonable, so you don't have to reformat the data when you need to provide it into some `REST API` for example.
