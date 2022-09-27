@@ -1,5 +1,5 @@
 # Territory of Indonesia
-This is a dataset project that currently covering all territory of Indonesia from level 4 to level 6 of administration level. This dataset based on OSM Database that released on August 8th, 2022
+This is a dataset project that currently covering all territory of Indonesia from level 4 to level 6 of administration level. This dataset based on OSM Database that released in August 8th, 2022
 
 ## How to use
 You probably only need all files in `./dist` directory to be using in your project. This dataset provides such important data, but there're two most important, which are `OSM ID` and `Coordinates`.
