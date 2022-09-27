@@ -8,4 +8,4 @@ You probably only need all files in `./dist` directory to be using in your proje
 - Coordinates used for making a polygon of boundaries in 3rd party application such Google Maps.
 
 ## Why there are interface files
-I hope, these interfaces can help you when you have to Marshaling these jsons, into a struct or another data typed collections.
+I hope, these interfaces can help when you have to Marshaling these jsons, into a struct or another data typed collections.
