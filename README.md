@@ -15,7 +15,7 @@ I'm planning to change `Coordinates` struct from `3D array` into something like:
 ```json
 {
     "coordinates": [
-        { lat: 0, lng: 0 }
+        { "lat": 0, "lng": 0 }
     ]
 }
 ```
