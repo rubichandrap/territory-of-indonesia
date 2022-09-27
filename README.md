@@ -9,6 +9,7 @@ You probably only need all files in `./dist` directory to be using in your proje
 
 ## How Coordinates can be so important
 As I mentioned above, it used for making polygon of boundaries. If you are using Google Maps Service, it allows you to draw a polygon that represents an area in the cartesian plane. For example:
+
 ![polygon boundary](./assets/boundary-example.png)
 
 ## Why there are interface files
