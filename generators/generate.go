@@ -50,7 +50,7 @@ func Generate(data interfaces.Features, dirname string, filename string) {
 
 		bounds.Features = append(bounds.Features, data)
 
-		file, err := json.Marshal(&data)
+		file, err := json.Marshal(&bounds)
 		if err != nil {
 			log.Fatal(fmt.Errorf("error when marshaling: %v", err))
 		}
