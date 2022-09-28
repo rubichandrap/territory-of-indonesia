@@ -1,3 +1,8 @@
+class LatLng {
+  int? lat;
+  int? lng;
+}
+
 class Geometry {
   String? type;
   dynamic coordinates;
@@ -15,7 +20,7 @@ class Properties {
 
 class Features {
   String? type;
-  Geometry? geometry;
+  dynamic geometry;
   Properties? properties;
 }
 

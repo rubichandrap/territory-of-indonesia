@@ -1,3 +1,8 @@
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
 export interface Geometry {
   type: string;
   coordinates: number[][][] | number[];
@@ -15,7 +20,7 @@ export interface Properties {
 
 export interface Features {
   type: string;
-  geometry: Geometry;
+  geometry?: Geometry;
   properties: Properties;
 }
 

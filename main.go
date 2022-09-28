@@ -5,25 +5,55 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	"strconv"
 	"strings"
 
+	ct "territory-of-indonesia/constants"
 	"territory-of-indonesia/generators"
 	"territory-of-indonesia/interfaces"
 )
 
-const (
-	Province int64 = iota + 4
-	District
-	SubDistrict
-)
-
-const (
-	Path       string = "./dist"
-	SourceFile string = "./osm-boundaries.json"
-)
-
 func main() {
-	c, err := os.ReadFile(SourceFile)
+	opts := ct.ArgumentOptions{}
+
+	args := os.Args[1:]
+	for _, arg := range args {
+		if strings.Contains(arg, "--withGeometry=") {
+			v := strings.Split(arg, "=")[1]
+			if v != "true" && v != "false" {
+				fmt.Println("invalid argument received by --withGeometry, the default value (true) will be used")
+				opts.WithGeometry = true
+			} else {
+				boolValue, err := strconv.ParseBool(v)
+				if err != nil {
+					log.Fatal(fmt.Errorf("error when parsing --withGeometry value too bool: %v", err))
+				}
+				opts.WithGMapsPolygonFormat = boolValue
+			}
+		} else if strings.Contains(arg, "--withGMapsPolygonFormat=") {
+			v := strings.Split(arg, "=")[1]
+			if v != "true" && v != "false" {
+				fmt.Println("invalid argument received by --withGMapsPolygonFormat, the default value (false) will be used")
+				opts.WithGMapsPolygonFormat = false
+			} else {
+				boolValue, err := strconv.ParseBool(v)
+				if err != nil {
+					log.Fatal(fmt.Errorf("error when parsing --withGMapsPolygonFormat value too bool: %v", err))
+				}
+				opts.WithGMapsPolygonFormat = boolValue
+			}
+		}
+	}
+
+	if _, err := os.Stat(ct.Path); os.IsNotExist(err) {
+		err := os.Mkdir(ct.Path, os.ModeDir)
+		if err != nil {
+			log.Fatal(fmt.Errorf("error when making a dir: %v", err))
+		}
+	}
+
+	c, err := os.ReadFile(ct.SourceFile)
 	if err != nil {
 		log.Fatal(fmt.Errorf("error when reading a file: %v", err))
 	}
@@ -35,13 +65,6 @@ func main() {
 		log.Fatal(fmt.Errorf("error when unmarshaling: %v", err))
 	}
 
-	if _, err := os.Stat(Path); os.IsNotExist(err) {
-		err := os.Mkdir(Path, os.ModeDir)
-		if err != nil {
-			log.Fatal(fmt.Errorf("error when making a dir: %v", err))
-		}
-	}
-
 	for _, feat := range d.Features {
 		adminLevel, err := feat.Properties.AdminLevel.Int64()
 		if err != nil {
@@ -50,12 +73,12 @@ func main() {
 
 		parentId := strings.Split(feat.Properties.Parents, ",")[0]
 
-		if adminLevel == Province {
-			generators.Generate(feat, Path, "provinces.json")
-		} else if adminLevel == District {
-			generators.Generate(feat, Path+"/districts", parentId+".json")
-		} else if adminLevel == SubDistrict {
-			generators.Generate(feat, Path+"/sub_districts", parentId+".json")
+		if adminLevel == ct.Province {
+			generators.Generate(feat, ct.Path, "provinces.json", opts)
+		} else if adminLevel == ct.District {
+			generators.Generate(feat, ct.Path+"/districts", parentId+".json", opts)
+		} else if adminLevel == ct.SubDistrict {
+			generators.Generate(feat, ct.Path+"/sub_districts", parentId+".json", opts)
 		}
 	}
 }
