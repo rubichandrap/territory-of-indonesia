@@ -9,7 +9,7 @@ import (
 	"territory-of-indonesia/interfaces"
 )
 
-func Generate(data interfaces.Features, dirname string, filename string) {
+func Generate(data interfaces.Features, dirname string, filename string, opts interfaces.ArgumentOptions) {
 	if _, err := os.Stat(dirname); os.IsNotExist(err) {
 		err := os.Mkdir(dirname, os.ModeDir)
 		if err != nil {
@@ -17,9 +17,13 @@ func Generate(data interfaces.Features, dirname string, filename string) {
 		}
 	}
 
-	fullPath := dirname + "/" + filename
+	if !opts.WithGeometry {
+		data.Geometry = nil
+	}
 
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+	fp := dirname + "/" + filename
+
+	if _, err := os.Stat(fp); os.IsNotExist(err) {
 		bounds := interfaces.Boundaries{
 			Type: "FeatureCollection",
 		}
@@ -31,12 +35,12 @@ func Generate(data interfaces.Features, dirname string, filename string) {
 			log.Fatal(fmt.Errorf("error when marshaling: %v", err))
 		}
 
-		err = os.WriteFile(fullPath, file, 0644)
+		err = os.WriteFile(fp, file, 0644)
 		if err != nil {
 			log.Fatal(fmt.Errorf("error when writing a file: %v", err))
 		}
 	} else {
-		c, err := os.ReadFile(fullPath)
+		c, err := os.ReadFile(fp)
 		if err != nil {
 			log.Fatal(fmt.Errorf("error when reading a file: %v", err))
 		}
@@ -55,7 +59,7 @@ func Generate(data interfaces.Features, dirname string, filename string) {
 			log.Fatal(fmt.Errorf("error when marshaling: %v", err))
 		}
 
-		err = os.WriteFile(fullPath, file, 0644)
+		err = os.WriteFile(fp, file, 0644)
 		if err != nil {
 			log.Fatal(fmt.Errorf("error when writing a file: %v", err))
 		}

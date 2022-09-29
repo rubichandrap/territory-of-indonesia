@@ -2,9 +2,13 @@ package interfaces
 
 import "encoding/json"
 
+type ArgumentOptions struct {
+	WithGeometry bool
+}
+
 type Geometry struct {
-	Type        string      `json:"type"`
-	Coordinates interface{} `json:"coordinates"`
+	Type        string        `json:"type"`
+	Coordinates []interface{} `json:"coordinates"`
 }
 
 type Properties struct {
@@ -18,9 +22,9 @@ type Properties struct {
 }
 
 type Features struct {
-	Type       string     `json:"type"`
-	Geometry   Geometry   `json:"geometry"`
-	Properties Properties `json:"properties"`
+	Type       string      `json:"type"`
+	Geometry   interface{} `json:"geometry,omitempty"`
+	Properties Properties  `json:"properties"`
 }
 
 type Boundaries struct {
