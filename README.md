@@ -10,6 +10,6 @@ You can run this program with additional argument variable. For example: `go run
 
 | Option         | Default | Available Value | Usage                                | Description
 |----------------|---------|-----------------|--------------------------------------|-------------------------------------------------|
-| --withGeometry | true    | <true>|<false>  | `go run main.go --withGeometry=true` | If you passing false, `geometry` property won't |
+| --withGeometry | true    | true, false     | `go run main.go --withGeometry=true` | If you passing false, `geometry` property won't |
 |                |         |                 |                                      | be generated                                    |
 |                |         |                 |                                      |                                                 |
