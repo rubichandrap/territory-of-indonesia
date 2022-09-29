@@ -8,6 +8,6 @@ This is a project that I used for generating [territory-of-indonesia](https://gi
 ### Options
 You can run this program with additional argument variable. For example: `go run main.go <option>`
 
-| Option         | Default | Available Value | Usage                 | Description
-|----------------|---------|-----------------|-----------------------|--------------------------------------------------------------|
-| --withGeometry | true    | true, false     | `--withGeometry=true` | If you passing false, `geometry` property won't be generated |
+| Option         | Default | Available Value | Description
+|----------------|---------|-----------------|--------------------------------------------------------------|
+| withGeometry   | true    | true, false     | If you passing false, `geometry` property won't be generated |
