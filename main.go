@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-  
-  "strconv"
-  "strings"
+	"strconv"
+	"strings"
 
 	ct "territory-of-indonesia/constants"
 	"territory-of-indonesia/generators"
