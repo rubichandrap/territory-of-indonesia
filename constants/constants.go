@@ -1,9 +1,4 @@
-package constants
-
-type ArgumentOptions struct {
-	WithGeometry           bool
-	WithGMapsPolygonFormat bool
-}
+package constantss
 
 const (
 	Province int64 = iota + 4

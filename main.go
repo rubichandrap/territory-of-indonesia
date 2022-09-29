@@ -15,7 +15,9 @@ import (
 )
 
 func main() {
-	opts := ct.ArgumentOptions{}
+	opts := interfaces.ArgumentOptions{
+		WithGeometry: true,
+	}
 
 	args := os.Args[1:]
 	for _, arg := range args {
@@ -23,25 +25,12 @@ func main() {
 			v := strings.Split(arg, "=")[1]
 			if v != "true" && v != "false" {
 				fmt.Println("invalid argument received by --withGeometry, the default value (true) will be used")
-				opts.WithGeometry = true
 			} else {
 				boolValue, err := strconv.ParseBool(v)
 				if err != nil {
 					log.Fatal(fmt.Errorf("error when parsing --withGeometry value too bool: %v", err))
 				}
-				opts.WithGMapsPolygonFormat = boolValue
-			}
-		} else if strings.Contains(arg, "--withGMapsPolygonFormat=") {
-			v := strings.Split(arg, "=")[1]
-			if v != "true" && v != "false" {
-				fmt.Println("invalid argument received by --withGMapsPolygonFormat, the default value (false) will be used")
-				opts.WithGMapsPolygonFormat = false
-			} else {
-				boolValue, err := strconv.ParseBool(v)
-				if err != nil {
-					log.Fatal(fmt.Errorf("error when parsing --withGMapsPolygonFormat value too bool: %v", err))
-				}
-				opts.WithGMapsPolygonFormat = boolValue
+				opts.WithGeometry = boolValue
 			}
 		}
 	}

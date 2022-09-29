@@ -2,9 +2,8 @@ package interfaces
 
 import "encoding/json"
 
-type LatLng struct {
-	Lat json.Number `json:"lat"`
-	Lng json.Number `json:"lng"`
+type ArgumentOptions struct {
+	WithGeometry bool
 }
 
 type Geometry struct {
@@ -24,7 +23,7 @@ type Properties struct {
 
 type Features struct {
 	Type       string      `json:"type"`
-	Geometry   interface{} `json:"geometry"`
+	Geometry   interface{} `json:"geometry,omitempty"`
 	Properties Properties  `json:"properties"`
 }
 
