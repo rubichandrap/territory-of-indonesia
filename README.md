@@ -6,7 +6,7 @@ This is a project that I used for generating [territory-of-indonesia](https://gi
 - Clone this repo, then run `go run main.go`.
 
 ### Options
-You can run this program with additional argument variable. For example: `go run main.go <option>`
+You can run this program with additional argument variable. For example: `go run main.go --<option>`
 
 | Option         | Default | Available Value | Description
 |----------------|---------|-----------------|--------------------------------------------------------------|
