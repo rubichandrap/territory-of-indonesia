@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rubichandrap/territory-of-indonesia/schema/territory.schema.json",
+  "title": "Territory of Indonesia v2",
+  "description": "Contract for the files in a dataset release. Validate a file against one of the definitions below, for example territory.schema.json#/$defs/IndexEntry.",
+  "oneOf": [
+    { "$ref": "#/$defs/Manifest" },
+    { "$ref": "#/$defs/IndexEntry" },
+    { "$ref": "#/$defs/FeatureCollection" }
+  ],
+  "$defs": {
+    "Level": {
+      "description": "Name of an administrative level.",
+      "enum": ["province", "regency", "district", "village"]
+    },
+    "Properties": {
+      "title": "Properties",
+      "description": "Attributes of one region. The properties of every GeoJSON feature, and the base of every index entry.",
+      "type": "object",
+      "required": ["osm_id", "level", "admin_level", "name"],
+      "properties": {
+        "osm_id": { "type": "integer", "minimum": 1, "description": "OpenStreetMap relation id. Unique across the dataset." },
+        "level": { "$ref": "#/$defs/Level" },
+        "admin_level": { "enum": [4, 5, 6, 7], "description": "OpenStreetMap admin_level: 4 province, 5 kabupaten/kota, 6 kecamatan, 7 desa/kelurahan." },
+        "kind": { "type": "string", "description": "Local term: kabupaten, kota, kecamatan, distrik, desa, kelurahan, ... Absent when unknown." },
+        "name": { "type": "string", "description": "OpenStreetMap name, which in Indonesia is the local name. Often without the kabupaten/kota/kecamatan/desa prefix." },
+        "name_en": { "type": "string" },
+        "official_name": { "type": "string", "description": "Name including the type prefix, for example Kota Bandung." },
+        "code": {
+          "type": "string",
+          "pattern": "^\\d{2}(\\.\\d{2}(\\.\\d{2}(\\.\\d{4})?)?)?$",
+          "description": "Kemendagri region code: NN, NN.NN, NN.NN.NN or NN.NN.NN.NNNN. Absent when OpenStreetMap has none."
+        },
+        "wikidata": { "type": "string", "pattern": "^Q\\d+$" },
+        "parent_id": { "type": "integer", "minimum": 1, "description": "osm_id of the nearest ancestor in the dataset. Normally the level above; higher when OpenStreetMap has no region in between. Absent for provinces." },
+        "ancestors": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1, "description": "osm_id of every ancestor, province first." }
+      }
+    },
+    "IndexEntry": {
+      "title": "IndexEntry",
+      "description": "One element of the arrays in index/*.json: the properties plus what a client needs to place the region on a map without loading its geometry.",
+      "allOf": [{ "$ref": "#/$defs/Properties" }],
+      "type": "object",
+      "required": ["bbox", "center"],
+      "properties": {
+        "bbox": { "$ref": "#/$defs/BBox" },
+        "center": { "$ref": "#/$defs/Position", "description": "A point inside the region, [longitude, latitude]." },
+        "children": {
+          "type": "object",
+          "description": "Number of direct children per child level; the matching file is index/<level>/<osm_id>.json.",
+          "propertyNames": { "enum": ["regencies", "districts", "villages"] },
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "BBox": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "[west, south, east, north]"
+    },
+    "Position": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "Ring": { "type": "array", "items": { "$ref": "#/$defs/Position" }, "minItems": 4 },
+    "Polygon": {
+      "type": "object",
+      "required": ["type", "coordinates"],
+      "properties": {
+        "type": { "const": "Polygon" },
+        "coordinates": { "type": "array", "items": { "$ref": "#/$defs/Ring" }, "minItems": 1 }
+      },
+      "additionalProperties": false
+    },
+    "MultiPolygon": {
+      "type": "object",
+      "required": ["type", "coordinates"],
+      "properties": {
+        "type": { "const": "MultiPolygon" },
+        "coordinates": {
+          "type": "array",
+          "items": { "type": "array", "items": { "$ref": "#/$defs/Ring" }, "minItems": 1 },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "Feature": {
+      "title": "Feature",
+      "description": "A GeoJSON feature in full/ or simplified/. Exterior rings are counter-clockwise, holes clockwise (RFC 7946).",
+      "type": "object",
+      "required": ["type", "id", "bbox", "properties", "geometry"],
+      "properties": {
+        "type": { "const": "Feature" },
+        "id": { "type": "integer", "minimum": 1, "description": "Same as properties.osm_id." },
+        "bbox": { "$ref": "#/$defs/BBox" },
+        "properties": { "$ref": "#/$defs/Properties" },
+        "geometry": { "oneOf": [{ "$ref": "#/$defs/Polygon" }, { "$ref": "#/$defs/MultiPolygon" }] }
+      },
+      "additionalProperties": false
+    },
+    "FeatureCollection": {
+      "title": "FeatureCollection",
+      "type": "object",
+      "required": ["type", "features"],
+      "properties": {
+        "type": { "const": "FeatureCollection" },
+        "features": { "type": "array", "items": { "$ref": "#/$defs/Feature" }, "minItems": 1 }
+      },
+      "additionalProperties": false
+    },
+    "Manifest": {
+      "title": "Manifest",
+      "description": "manifest.json: what a dataset release contains and where it came from.",
+      "type": "object",
+      "required": ["schema_version", "source", "tool", "counts", "tiers", "license", "attribution"],
+      "properties": {
+        "schema_version": { "const": 2 },
+        "source": {
+          "type": "object",
+          "required": ["name", "provider"],
+          "properties": {
+            "name": { "type": "string" },
+            "provider": { "type": "string" },
+            "osm_timestamp": { "type": "string", "format": "date-time", "description": "The data is at least this current: the oldest osm_timestamp of the extracts, UTC." },
+            "extracts": {
+              "type": "array",
+              "description": "The input files. A boundary on a border is completed from the neighbouring country's extract, so there can be several.",
+              "items": {
+                "type": "object",
+                "required": ["file", "sha256"],
+                "properties": {
+                  "file": { "type": "string" },
+                  "url": { "type": "string" },
+                  "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                  "osm_timestamp": { "type": "string", "format": "date-time" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "tool": { "type": "string" },
+        "counts": {
+          "type": "object",
+          "required": ["provinces", "regencies", "districts", "villages"],
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "tiers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["dir", "description", "files", "bytes"],
+            "properties": {
+              "dir": { "type": "string" },
+              "description": { "type": "string" },
+              "decimals": { "type": "integer" },
+              "simplify_tolerance_degrees": { "type": "object", "additionalProperties": { "type": "number" } },
+              "files": { "type": "integer", "minimum": 0 },
+              "bytes": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "license": { "const": "ODbL-1.0" },
+        "attribution": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
