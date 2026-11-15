@@ -1,0 +1,10 @@
+# Downloads and intermediate files (the PBF alone is ~1.7 GB)
+/.cache/
+
+# The dataset is published as release assets, not committed
+/dist/
+
+# Local build output
+/toi
+*.osm.pbf
+*.geojsonseq
