@@ -1,0 +1,69 @@
+name: release-data
+
+# Builds the dataset from the newest OpenStreetMap extract and publishes it as
+# a GitHub release. Runs monthly, or by hand to build a specific snapshot.
+on:
+  schedule:
+    - cron: "0 3 5 * *"
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: 'Geofabrik snapshot: "latest" or a dated one such as 261114'
+        default: latest
+
+permissions:
+  contents: write
+
+# Two runs building the same release at once would race to create it.
+concurrency: release-data
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # An input is passed through the environment, never interpolated into
+      # the script, so it cannot inject shell commands.
+      SNAPSHOT: ${{ inputs.snapshot || 'latest' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install osmium and zip
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends osmium-tool zip
+
+      - run: go build -o toi ./cmd/toi
+
+      # The previous release's manifest is the baseline: the build fails if a
+      # level loses more than 2% of its regions.
+      - name: Fetch the previous manifest
+        run: gh release download --pattern manifest.json --dir baseline || echo "no previous release"
+
+      - name: Build and validate
+        run: |
+          args=(-snapshot "$SNAPSHOT" -osmium local)
+          if [ -f baseline/manifest.json ]; then args+=(-baseline baseline/manifest.json); fi
+          ./toi all "${args[@]}"
+
+      - name: Summary
+        run: cat dist/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish
+        run: |
+          tag="data-$(jq -r '.source.osm_timestamp[:10]' dist/manifest.json)"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "release $tag already exists, nothing to do"
+            exit 0
+          fi
+          cd dist
+          for tier in index simplified full; do
+            zip -qr "../territory-of-indonesia-$tier.zip" "$tier" manifest.json
+          done
+          cd ..
+          gh release create "$tag" \
+            --title "Data as of ${tag#data-}" \
+            --notes-file dist/report.md \
+            territory-of-indonesia-*.zip dist/manifest.json dist/report.json
