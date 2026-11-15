@@ -1,16 +1,240 @@
 # Territory of Indonesia
-This is a dataset project that currently covering all territory of Indonesia from level 4 to level 6 of administration level. This dataset based on OSM Database that released in August 8th, 2022. This project generated using [territory-of-indonesia-toolkit](https://github.com/rubichandrap/territory-of-indonesia-toolkit).
 
-## How to use
-You probably only need all files in `./dist` directory to be using in your project. This dataset provides such important data, but there're two most important, which are `OSM ID` and `Coordinates`.
+Administrative boundaries of Indonesia as GeoJSON, from provinces down to
+villages, built from [OpenStreetMap](https://www.openstreetmap.org/) with a
+reproducible pipeline that lives in this repository.
 
-- OSM ID used for getting higher administration level file. For example, After you get the list of provinces, you can get `OSM ID` from one of the list item. Then use it to get the list of districts for that respective province, and so on.
-- Coordinates used for making a polygon of boundaries in 3rd party application such Google Maps.
+This is **v2**. It replaces the 2022 dataset and its separate generator
+(`territory-of-indonesia-toolkit`), which are now one project. v1 is kept at
+the `v1` tag; see [Migrating from v1](#migrating-from-v1).
 
-## How Coordinates can be so important
-As I mentioned above, it used for making polygon of boundaries. If you are using Google Maps Service, it allows you to draw a polygon that represents an area in the cartesian plane. For example:
+## What is in it
 
-![polygon boundary](./assets/boundary-example.png)
+Data as of **2026-11-14** (OpenStreetMap):
 
-## Why there are interface files
-I hope, these interfaces can help when you have to Marshaling these jsons, into a struct or another data typed collections.
+| Level | OSM `admin_level` | Regions | Coverage |
+|---|:-:|--:|---|
+| `province` (provinsi) | 4 | 38 | all of them |
+| `regency` (kabupaten / kota) | 5 | 514 | all of them (415 kabupaten, 97 kota, 2 unclassified) |
+| `district` (kecamatan / distrik) | 6 | 2,177 | partial, about a third of Indonesia |
+| `village` (desa / kelurahan) | 7 | 6,534 | partial, under a tenth of Indonesia |
+
+OpenStreetMap is complete down to the kabupaten/kota level. Below that it is
+being mapped region by region, so the district and village files cover only
+part of the country. The official totals are roughly 7,000 kecamatan and
+83,000 desa/kelurahan (approximate figures). Each release's `report.md` states
+exactly what it contains and what looked wrong.
+
+## Getting the data
+
+Each release is published on the
+[Releases page](https://github.com/rubichandrap/territory-of-indonesia/releases)
+as one zip per tier, plus `manifest.json` and `report.json`:
+
+| Asset | Size | Use it for |
+|---|--:|---|
+| `territory-of-indonesia-index.zip` | 2.4 MB | dropdowns, search, map markers: properties, bounding box and a label point for every region, **no geometry** |
+| `territory-of-indonesia-simplified.zip` | 15 MB | drawing maps: GeoJSON with simplified geometry |
+| `territory-of-indonesia-full.zip` | 186 MB | analysis: GeoJSON with the geometry exactly as OpenStreetMap has it |
+
+GitHub Releases cannot serve single files, so unzip the tier you need and ship
+or host the files yourself.
+
+### Layout
+
+```
+manifest.json
+index/provinces.json                  geometry-free entries
+index/regencies/<province id>.json    the regencies of one province
+index/districts/<regency id>.json
+index/villages/<district id>.json
+simplified/provinces.geojson          FeatureCollections, same file names
+simplified/regencies/<province id>.geojson
+full/...
+```
+
+Walk down the tree with the `osm_id` of what the user picked. Each index entry
+has a `children` object (`{"districts": 12}`) that says which files exist for
+it:
+
+```js
+const provinces = await (await fetch("/territory/index/provinces.json")).json();
+const jabar = provinces.find((p) => p.name === "Jawa Barat");
+
+const regencies = await (await fetch(`/territory/index/regencies/${jabar.osm_id}.json`)).json();
+const bandung = regencies.find((r) => r.official_name === "Kota Bandung");
+
+// Only some regions have districts mapped, so check `children` first.
+if (bandung.children?.districts) {
+  const districts = await (await fetch(`/territory/index/districts/${bandung.osm_id}.json`)).json();
+}
+```
+
+To draw a region, take the same path in `simplified/` and give the feature to
+Leaflet, MapLibre, Google Maps (`Data.addGeoJson`) or any GeoJSON consumer.
+
+### Properties
+
+Every feature's `properties`, and every index entry, has:
+
+| Property | Always | Meaning |
+|---|:-:|---|
+| `osm_id` | yes | OpenStreetMap relation id, unique across the dataset |
+| `level` | yes | `province`, `regency`, `district` or `village` |
+| `admin_level` | yes | 4, 5, 6 or 7 |
+| `name` | yes | OSM `name`: the local name, usually without the "Kabupaten"/"Kecamatan" prefix |
+| `official_name` | | name with the prefix, such as `Kota Bandung` |
+| `name_en` | | English name |
+| `kind` | | `kabupaten`, `kota`, `kecamatan`, `distrik`, `desa`, `kelurahan`, ... See below |
+| `code` | | Kemendagri region code (`32`, `32.73`, `32.73.01`, `32.73.01.1001`) |
+| `wikidata` | | Wikidata id |
+| `parent_id` | | the nearest ancestor in the dataset; absent for provinces |
+| `ancestors` | | every ancestor, province first |
+
+Index entries add `bbox` (`[west, south, east, north]`), `center` (a point
+inside the region, `[lon, lat]`) and `children`. Features carry `id`
+(same as `osm_id`) and `bbox`. The contract is
+[`schema/territory.schema.json`](schema/territory.schema.json); TypeScript
+types are in [`types/territory.d.ts`](types/territory.d.ts).
+
+`code` is present only where OpenStreetMap has it: all provinces, and about
+41% of regencies, 38% of districts and 26% of villages. `kind` is read from
+`official_name`/`name` and falls back to the Kemendagri numbering rules
+(kota codes are `NN.71` and up; a village code starting `1` is a kelurahan, `2`
+a desa), so it is empty where neither says anything.
+
+### Things to know
+
+- **A level can be missing.** `parent_id` is the nearest ancestor that exists in
+  the dataset, and at most one level is skipped. 768 villages sit directly
+  under a regency because their kecamatan is not mapped; their file is
+  `index/villages/<regency id>.json`. Compare `admin_level` with the parent's
+  to tell.
+- **`simplified` is for drawing.** It keeps 8% of the points; the median area
+  error against `full` is 0.4%, and a village a hundred metres across can be
+  off by more. Simplification is per ring, so a border shared by two regions can
+  show a hairline gap. Tiny islands are kept.
+- **Names come from OpenStreetMap** and follow its conventions, which vary by
+  region. Use `official_name` or `code` where you need a stable label.
+
+## Migrating from v1
+
+v2 is a clean break. Nothing from v1 is served any more; v1 stays available at
+the [`v1` tag](https://github.com/rubichandrap/territory-of-indonesia/tree/v1).
+
+| | v1 | v2 |
+|---|---|---|
+| Distribution | files committed under `dist/` | release assets, built by CI |
+| Levels | provinces, "districts" (= regencies), "sub_districts" (= kecamatan) | provinces, regencies, districts, **villages** |
+| `osm_id` | negative (`-304751`) | the real, positive relation id |
+| Names | `name` was English-first, plus `local_name` | `name` is the OSM name; `name_en`, `official_name` added; `local_name` removed |
+| Parents | `parents`: a comma-separated string | `parent_id` and `ancestors` |
+| Removed | `boundary` (always `administrative`) | |
+| Added | | `level`, `kind`, `code`, `wikidata`, `bbox`, `center`, `children` |
+| Types | hand-written Go, Dart, TS (out of step with the data) | one JSON Schema, checked against real output by a test |
+
+v2 also fixes data bugs in v1. About 55 kecamatan whose kabupaten was missing
+from the source were filed under their province id, so a lookup by kabupaten
+never found them (Kota Bandung's kecamatan, for one); 46 of the ones that
+exist in both versions now have their real parent. And 97 of v1's 454
+"regencies" were islands and national parks that OpenStreetMap had tagged
+`admin_level=5` on closed ways. v2 keeps only boundary relations. (One more,
+Demak, is a real kabupaten whose relation was re-created under a new id.)
+
+## Building it yourself
+
+You need Go 1.27 or newer and either
+[osmium-tool](https://osmcode.org/osmium-tool/) (`apt install osmium-tool`) or
+Docker. With Docker, the image is built on first use from
+[`internal/osmium/Dockerfile`](internal/osmium/Dockerfile) and has osmium 1.18,
+which is what the dataset was built and tested with.
+
+```sh
+go run ./cmd/toi all
+```
+
+That downloads the newest Geofabrik extracts (1.7 GB for Indonesia, 250 MB for
+the neighbour) into `.cache/`, assembles the boundaries, and writes the dataset
+to `dist/`. It takes about a minute plus the download. The steps also run
+separately:
+
+```sh
+toi fetch    -snapshot 261114            # a dated snapshot instead of "latest"
+toi extract  -pbf a.osm.pbf -pbf b.osm.pbf -osmium docker
+toi build    -out dist                   # also writes dist/report.md and report.json
+toi validate -dist dist -baseline previous/manifest.json
+```
+
+`toi validate` exits 1 on errors and is what CI uses as a gate. Given the
+`manifest.json` of the previous release as `-baseline`, it also fails if any
+level loses more than 2% of its regions.
+
+### How it works
+
+1. **fetch** downloads dated extracts from Geofabrik and checks the md5 they
+   publish.
+2. **extract** keeps `boundary=administrative` relations with `osmium
+   tags-filter`, merges the extracts, keeps `admin_level` 4 to 7, and lets
+   `osmium export` assemble the member ways into polygons. Assembling rings
+   from hundreds of ways is the hard part, and osmium's assembler is the
+   reference implementation.
+3. **build** works out the hierarchy. OpenStreetMap does not store it usably, so
+   it is found geometrically: each region's interior point is tested against
+   the polygons one level up, then two levels up, and so on. If several
+   parents contain the point (an enclave inside a surrounding polygon), the
+   parent whose Kemendagri code prefixes the region's own code wins, else the
+   smallest. At most one level may be skipped. Regions that no Indonesian
+   province contains are dropped (the extracts include parts of Malaysia,
+   Thailand and the Philippines), and so are orphans: regions inside a province
+   that nothing within a skipped level contains.
+4. **validate** re-reads the files and checks them independently of the build:
+   file layout against the index, referential integrity, children counts,
+   ancestor chains, geometry validity and bounds, manifest counts.
+
+**Why two extracts?** Geofabrik cuts the Indonesia extract at the border, so a
+boundary that shares ways with Malaysia (Kalimantan Utara, Kepulauan Riau,
+Nunukan) cannot be assembled from it alone: with the Indonesia extract by
+itself the build had 36 of 38 provinces, 502 of 514 regencies, 2,157 districts
+instead of 2,177 and 6,483 villages instead of 6,548. Use
+`-neighbor none` to skip it, or `-neighbor` to name others.
+
+**Every build records its inputs.** `manifest.json` lists each extract with its
+URL, SHA-256 and OSM timestamp, so a release can be traced to the exact input.
+The same inputs give byte-identical output.
+
+### Known limitations
+
+- 16 villages (0.2%) have a Kemendagri code that does not fit the parent their
+  polygon falls in. That is an inconsistency inside OpenStreetMap, not
+  something the build can settle. They are listed in `report.json`.
+- 14 "villages" are about a hundred metres across and lie in the sea off the
+  Gunungkidul coast (Drini, Timang, Watupanjang and other beaches), outside
+  every regency polygon. They are mis-tagged in OpenStreetMap and are left out;
+  `report.json` lists them as orphans.
+- A relation OpenStreetMap has but osmium cannot turn into a polygon (a ring
+  that does not close) is missing from the dataset. One Indonesian village,
+  Kedungsari, is in this state today. `report.json` lists them.
+
+## Development
+
+```sh
+go vet ./... && go test -race ./...
+```
+
+The tests include a contract test that validates real emitted files against
+`schema/territory.schema.json`, and a guard that fails if
+`types/territory.d.ts` is missing a property the schema declares. CI
+([`ci.yml`](.github/workflows/ci.yml)) runs them on every push.
+[`release-data.yml`](.github/workflows/release-data.yml) builds and publishes
+the dataset monthly.
+
+Layout: `cmd/toi` is the command line; `internal/` has one package per step
+(`fetch`, `osmium`, `source`, `hierarchy`, `emit`, `validate`, `report`) plus
+`geom`, `geojson` and `model`.
+
+## License
+
+The code is [MIT](LICENSE). The data is derived from OpenStreetMap and is
+licensed under the [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/):
+**© OpenStreetMap contributors.** See [LICENSE-DATA.md](LICENSE-DATA.md) for
+what that asks of you.
