@@ -37,8 +37,24 @@ as one zip per tier, plus `manifest.json` and `report.json`:
 | `territory-of-indonesia-simplified.zip` | 15 MB | drawing maps: GeoJSON with simplified geometry |
 | `territory-of-indonesia-full.zip` | 186 MB | analysis: GeoJSON with the geometry exactly as OpenStreetMap has it |
 
-GitHub Releases cannot serve single files, so unzip the tier you need and ship
-or host the files yourself.
+GitHub Releases cannot serve single files, so for a copy you can fetch file by
+file, use the hosted one below, or unzip a tier and host it yourself.
+
+### Hosted copy
+
+The newest release's `index` and `simplified` tiers are also served from
+GitHub Pages, with CORS enabled, so a web page can fetch them directly:
+
+```
+https://rubichandrap.github.io/territory-of-indonesia/v2/index/provinces.json
+https://rubichandrap.github.io/territory-of-indonesia/v2/simplified/provinces.geojson
+https://rubichandrap.github.io/territory-of-indonesia/v2/manifest.json
+```
+
+The path after the site root is the layout below, behind a `v2/` that is the
+format version, not a date. The site always holds the **newest** data, so a
+file can change under the same URL. To pin a version, download that release's
+zip. The `full` tier is only in the releases.
 
 ### Layout
 
@@ -58,20 +74,24 @@ has a `children` object (`{"districts": 12}`) that says which files exist for
 it:
 
 ```js
-const provinces = await (await fetch("/territory/index/provinces.json")).json();
+const base = "https://rubichandrap.github.io/territory-of-indonesia/v2";
+const get = async (path) => (await fetch(`${base}/${path}`)).json();
+
+const provinces = await get("index/provinces.json");
 const jabar = provinces.find((p) => p.name === "Jawa Barat");
 
-const regencies = await (await fetch(`/territory/index/regencies/${jabar.osm_id}.json`)).json();
+const regencies = await get(`index/regencies/${jabar.osm_id}.json`);
 const bandung = regencies.find((r) => r.official_name === "Kota Bandung");
 
 // Only some regions have districts mapped, so check `children` first.
 if (bandung.children?.districts) {
-  const districts = await (await fetch(`/territory/index/districts/${bandung.osm_id}.json`)).json();
+  const districts = await get(`index/districts/${bandung.osm_id}.json`);
 }
 ```
 
-To draw a region, take the same path in `simplified/` and give the feature to
-Leaflet, MapLibre, Google Maps (`Data.addGeoJson`) or any GeoJSON consumer.
+To draw a region, take the same path in `simplified/` (with `.geojson` instead
+of `.json`) and give the feature to Leaflet, MapLibre, Google Maps
+(`Data.addGeoJson`) or any GeoJSON consumer.
 
 ### Properties
 
@@ -146,8 +166,9 @@ Demak, is a real kabupaten whose relation was re-created under a new id.)
 You need Go 1.27 or newer and either
 [osmium-tool](https://osmcode.org/osmium-tool/) (`apt install osmium-tool`) or
 Docker. With Docker, the image is built on first use from
-[`internal/osmium/Dockerfile`](internal/osmium/Dockerfile) and has osmium 1.18,
-which is what the dataset was built and tested with.
+[`internal/osmium/Dockerfile`](internal/osmium/Dockerfile) and has osmium 1.18.
+Ubuntu 24.04's package (1.16), which CI installs, was tested against the same
+snapshot and produces a byte-identical dataset.
 
 ```sh
 go run ./cmd/toi all
@@ -230,7 +251,17 @@ the dataset monthly.
 
 Layout: `cmd/toi` is the command line; `internal/` has one package per step
 (`fetch`, `osmium`, `source`, `hierarchy`, `emit`, `validate`, `report`) plus
-`geom`, `geojson` and `model`.
+`geom`, `geojson` and `model`. `site/index.html` is the landing page of the
+hosted copy; a test checks that every dataset link in it exists.
+
+### Publishing
+
+`release-data.yml` does both jobs: it publishes the release and deploys the
+Pages site. Enable Pages once under Settings > Pages > Build and deployment >
+Source: **GitHub Actions**. Run the workflow by hand to build a dated snapshot;
+untick *Publish a GitHub release* to update only the Pages site. The site is
+only updated for the `latest` snapshot, so rebuilding an old one cannot
+overwrite newer data.
 
 ## License
 

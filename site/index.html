@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Territory of Indonesia</title>
+<meta name="description" content="Administrative boundaries of Indonesia as GeoJSON, from provinces down to villages, built from OpenStreetMap.">
+<style>
+  :root { color-scheme: light dark; --muted: #667; --line: #8884; --code: #8881; }
+  body { font: 16px/1.55 system-ui, sans-serif; margin: 0; }
+  main { max-width: 46rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+  h1 { margin-bottom: .25rem; }
+  h2 { margin-top: 2rem; font-size: 1.15rem; }
+  code, pre { font: 14px/1.5 ui-monospace, monospace; background: var(--code); border-radius: 4px; }
+  code { padding: .1em .3em; }
+  pre { padding: .75rem 1rem; overflow-x: auto; }
+  table { border-collapse: collapse; margin: .5rem 0; }
+  th, td { padding: .25rem .9rem .25rem 0; text-align: left; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; }
+  li { margin: .35rem 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>Territory of Indonesia</h1>
+<p>Administrative boundaries of Indonesia as GeoJSON, from provinces down to villages, built from
+<a href="https://www.openstreetmap.org/">OpenStreetMap</a>. This site serves the newest release of the
+<code>index</code> and <code>simplified</code> tiers. The files are served with CORS enabled, so a web page can fetch them directly.</p>
+
+<p id="asof">Loading release information…</p>
+<table id="counts" hidden><tbody></tbody></table>
+
+<h2>Start here</h2>
+<ul>
+  <li><a href="v2/index/provinces.json">v2/index/provinces.json</a>: the provinces, without geometry. Each entry's <code>children</code> says which files exist below it.</li>
+  <li><a href="v2/simplified/provinces.geojson">v2/simplified/provinces.geojson</a>: the provinces with simplified geometry, for drawing maps.</li>
+  <li><a href="v2/manifest.json">v2/manifest.json</a>: what this release contains and exactly which OpenStreetMap files it came from.</li>
+  <li><a href="v2/report.json">v2/report.json</a>: what looked wrong in OpenStreetMap while building it.</li>
+</ul>
+
+<h2>Layout</h2>
+<pre>v2/index/provinces.json                    geometry-free entries
+v2/index/regencies/&lt;province id&gt;.json
+v2/index/districts/&lt;regency id&gt;.json
+v2/index/villages/&lt;district id&gt;.json
+v2/simplified/provinces.geojson            the same files with simplified geometry
+v2/simplified/regencies/&lt;province id&gt;.geojson
+...</pre>
+
+<h2>Example</h2>
+<pre>const base = "https://rubichandrap.github.io/territory-of-indonesia/v2";
+const provinces = await (await fetch(`${base}/index/provinces.json`)).json();
+const jabar = provinces.find((p) =&gt; p.name === "Jawa Barat");
+const regencies = await (await fetch(`${base}/index/regencies/${jabar.osm_id}.json`)).json();</pre>
+
+<h2>Good to know</h2>
+<ul>
+  <li>This is always the <strong>newest</strong> release, so a file can change under the same URL. To pin a version, download a zip from the
+    <a href="https://github.com/rubichandrap/territory-of-indonesia/releases">Releases page</a>, which also has the full-resolution tier.</li>
+  <li>The <code>v2</code> in the path is the format version, not a date. A future incompatible format would get a new path.</li>
+  <li>Coverage below the regency level is partial. <a href="v2/report.json">report.json</a> and the
+    <a href="https://github.com/rubichandrap/territory-of-indonesia#readme">README</a> say exactly what is and is not there.</li>
+</ul>
+
+<footer>
+  Data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, available under the
+  <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>. Code is MIT.
+  <a href="https://github.com/rubichandrap/territory-of-indonesia">Source on GitHub</a>.
+</footer>
+</main>
+
+<script>
+fetch("v2/manifest.json")
+  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then((m) => {
+    const when = (m.source && m.source.osm_timestamp || "").slice(0, 10);
+    document.getElementById("asof").textContent = "Current release: OpenStreetMap data as of " + when + ".";
+    const body = document.querySelector("#counts tbody");
+    for (const level of ["provinces", "regencies", "districts", "villages"]) {
+      const row = body.insertRow();
+      row.insertCell().textContent = level;
+      row.insertCell().textContent = Number(m.counts[level]).toLocaleString("en");
+    }
+    document.getElementById("counts").hidden = false;
+  })
+  .catch(() => {
+    document.getElementById("asof").textContent = "Release information is unavailable right now.";
+  });
+</script>
+</body>
+</html>

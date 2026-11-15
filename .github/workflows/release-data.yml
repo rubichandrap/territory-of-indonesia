@@ -1,15 +1,22 @@
 name: release-data
 
-# Builds the dataset from the newest OpenStreetMap extract and publishes it as
-# a GitHub release. Runs monthly, or by hand to build a specific snapshot.
+# Builds the dataset from the newest OpenStreetMap extracts, publishes it as a
+# GitHub release, and updates the GitHub Pages site. Runs monthly, or by hand to
+# build a specific snapshot.
+#
+# One-time setup: Settings > Pages > Build and deployment > Source: GitHub Actions.
 on:
   schedule:
     - cron: "0 3 5 * *"
   workflow_dispatch:
     inputs:
       snapshot:
-        description: 'Geofabrik snapshot: "latest" or a dated one such as 261114'
+        description: 'Geofabrik snapshot: "latest" or a dated one such as 261114. The Pages site is only updated for "latest".'
         default: latest
+      release:
+        description: Publish a GitHub release
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -19,16 +26,20 @@ concurrency: release-data
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned, so the osmium version (and with it the output) does not change
+    # underneath us when ubuntu-latest moves to a new release.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
       GH_TOKEN: ${{ github.token }}
-      # An input is passed through the environment, never interpolated into
-      # the script, so it cannot inject shell commands.
+      # Inputs are passed through the environment, never interpolated into a
+      # script, so they cannot inject shell commands.
       SNAPSHOT: ${{ inputs.snapshot || 'latest' }}
+      # Scheduled runs have no inputs and always release.
+      RELEASE: ${{ github.event_name == 'schedule' || inputs.release }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
@@ -51,7 +62,8 @@ jobs:
       - name: Summary
         run: cat dist/report.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish
+      - name: Publish the release
+        if: env.RELEASE == 'true'
         run: |
           tag="data-$(jq -r '.source.osm_timestamp[:10]' dist/manifest.json)"
           if gh release view "$tag" >/dev/null 2>&1; then
@@ -67,3 +79,33 @@ jobs:
             --title "Data as of ${tag#data-}" \
             --notes-file dist/report.md \
             territory-of-indonesia-*.zip dist/manifest.json dist/report.json
+
+      # Pages serves the index and simplified tiers (about 17 MB). The full
+      # tier stays in the release assets. Only the newest data goes to Pages:
+      # rebuilding an old snapshot by hand must not overwrite it.
+      - name: Assemble the Pages site
+        if: env.SNAPSHOT == 'latest'
+        run: |
+          mkdir -p pages/v2
+          cp site/index.html pages/index.html
+          cp -r dist/index dist/simplified dist/manifest.json dist/report.json pages/v2/
+
+      - name: Upload the Pages site
+        if: env.SNAPSHOT == 'latest'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: pages
+
+  pages:
+    needs: build
+    if: (inputs.snapshot || 'latest') == 'latest'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
