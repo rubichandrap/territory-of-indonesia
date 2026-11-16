@@ -8,6 +8,11 @@ This is **v2**. It replaces the 2022 dataset and its separate generator
 (`territory-of-indonesia-toolkit`), which are now one project. v1 is kept at
 the `v1` tag; see [Migrating from v1](#migrating-from-v1).
 
+**[Explore it on a map](https://rubichandrap.github.io/territory-of-indonesia/)**: click a
+province, then a regency, a district and a village. It runs entirely in your browser
+from the hosted files, with no server and no map library, and each click downloads
+only the next small file.
+
 ## What is in it
 
 Data as of **2026-11-14** (OpenStreetMap):
@@ -251,8 +256,12 @@ the dataset monthly.
 
 Layout: `cmd/toi` is the command line; `internal/` has one package per step
 (`fetch`, `osmium`, `source`, `hierarchy`, `emit`, `validate`, `report`) plus
-`geom`, `geojson` and `model`. `site/index.html` is the landing page of the
-hosted copy; a test checks that every dataset link in it exists.
+`geom`, `geojson` and `model`. `site/index.html` is the landing page and map
+explorer of the hosted copy: one self-contained file, with no dependencies. A
+Go test checks that every dataset link in it exists. `site/e2e/run.sh` drives the
+page in a headless Chrome against a real `dist/` (hover, clicking down to a
+village, Back, search, shared links, dark mode, a phone); run it after changing
+the page.
 
 ### Publishing
 

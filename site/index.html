@@ -4,37 +4,133 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Territory of Indonesia</title>
-<meta name="description" content="Administrative boundaries of Indonesia as GeoJSON, from provinces down to villages, built from OpenStreetMap.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ctext y=%2713%27 font-size=%2713%27%3E%F0%9F%97%BA%3C/text%3E%3C/svg%3E">
+<meta name="description" content="Explore the administrative boundaries of Indonesia, from provinces down to villages. Open data from OpenStreetMap as GeoJSON.">
 <style>
-  :root { color-scheme: light dark; --muted: #667; --line: #8884; --code: #8881; }
-  body { font: 16px/1.55 system-ui, sans-serif; margin: 0; }
-  main { max-width: 46rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
-  h1 { margin-bottom: .25rem; }
-  h2 { margin-top: 2rem; font-size: 1.15rem; }
-  code, pre { font: 14px/1.5 ui-monospace, monospace; background: var(--code); border-radius: 4px; }
+  :root {
+    color-scheme: light dark;
+    --bg: #fff; --fg: #1b1f23; --muted: #5b6672; --line: #8885; --card: #f4f6f8;
+    --sea: #d9e8f4; --accent: #0b63ce; --stroke: #fff; --fill-l: 68%; --fill-s: 52%;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9aa7b4; --card: #161b22;
+            --sea: #0e2233; --accent: #58a6ff; --stroke: #0d1117; --fill-l: 40%; --fill-s: 42%; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, sans-serif; }
+  a { color: var(--accent); }
+  .wrap { max-width: 78rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+  .prose { max-width: 46rem; }
+  h1 { margin: 0 0 .25rem; }
+  h2 { font-size: 1.15rem; margin-top: 2rem; }
+  code, pre { font: 14px/1.5 ui-monospace, monospace; background: var(--card); border-radius: 4px; }
   code { padding: .1em .3em; }
   pre { padding: .75rem 1rem; overflow-x: auto; }
-  table { border-collapse: collapse; margin: .5rem 0; }
-  th, td { padding: .25rem .9rem .25rem 0; text-align: left; border-bottom: 1px solid var(--line); }
-  td:last-child { text-align: right; }
+  .lead { color: var(--muted); margin: 0 0 1rem; max-width: 46rem; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  .explorer { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1rem; align-items: start; }
+  .stage { position: relative; height: min(72vh, 38rem); background: var(--sea); border: 1px solid var(--line);
+           border-radius: 10px; overflow: hidden; touch-action: manipulation; }
+  svg { width: 100%; height: 100%; display: block; }
+  svg path { stroke: var(--stroke); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-linejoin: round; fill-rule: evenodd; }
+  path.act { fill: hsl(var(--h) var(--fill-s) var(--fill-l)); cursor: pointer; transition: filter .12s; }
+  path.act:hover, path.act.hl { filter: brightness(1.14) saturate(1.2); stroke: var(--fg); stroke-width: 1.6; }
+  path.act:focus-visible { outline: none; stroke: var(--accent); stroke-width: 3; }
+  path.ctx { fill: hsl(var(--h) 12% var(--fill-l)); opacity: .45; cursor: pointer; }
+  path.ctx:hover { opacity: .75; }
+  path.foc { fill: none; stroke: var(--accent); stroke-width: 2.5; pointer-events: none; }
+  path.foc.leaf { fill: hsl(var(--h) var(--fill-s) var(--fill-l)); }
+
+  .tip { position: absolute; pointer-events: none; z-index: 3; background: var(--fg); color: var(--bg); padding: .25rem .55rem;
+         border-radius: 6px; font-size: .85rem; max-width: 16rem; box-shadow: 0 2px 8px #0004; }
+  .tip small { display: block; opacity: .75; }
+  .busy, .error { position: absolute; z-index: 2; left: 50%; top: .75rem; transform: translateX(-50%); background: var(--card);
+                  border: 1px solid var(--line); border-radius: 999px; padding: .25rem .9rem; font-size: .9rem; }
+  .error { border-radius: 8px; color: #c62828; text-align: center; }
+  .credit { position: absolute; right: .5rem; bottom: .35rem; font-size: .72rem; color: var(--muted); background: #fff6; padding: 0 .3rem; border-radius: 3px; }
+  .bar { position: absolute; left: .6rem; top: .6rem; z-index: 2; display: flex; gap: .4rem; }
+  .bar button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .3rem .7rem; }
+  .bar button:disabled { opacity: .45; cursor: default; }
+  .bar button:hover:not(:disabled) { border-color: var(--accent); }
+
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .9rem; display: flex; flex-direction: column;
+           gap: .75rem; max-height: min(72vh, 38rem); overflow: auto; }
+  .crumbs { display: flex; flex-wrap: wrap; gap: .2rem .35rem; font-size: .88rem; color: var(--muted); }
+  .crumbs button { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; }
+  .crumbs b { color: var(--fg); font-weight: 600; }
+  .search input, .filter input { width: 100%; padding: .4rem .6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .hits { list-style: none; margin: .3rem 0 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .hits li button { width: 100%; text-align: left; background: none; border: 0; padding: .35rem .6rem; }
+  .hits li button:hover, .hits li button:focus-visible { background: var(--card); outline: none; }
+  .hits small, .list small { color: var(--muted); }
+  .info h2 { margin: 0; font-size: 1.25rem; }
+  .info .sub { margin: 0 0 .5rem; color: var(--muted); }
+  .info dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .15rem .8rem; font-size: .9rem; }
+  .info dt { color: var(--muted); }
+  .info dd { margin: 0; overflow-wrap: anywhere; }
+  .actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+  .actions a, .actions button { font-size: .85rem; padding: .25rem .65rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
+                                text-decoration: none; color: var(--accent); }
+  .list h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: .6rem 0 .2rem; }
+  .list ul { list-style: none; margin: 0; padding: 0; }
+  .list li button { width: 100%; display: flex; align-items: center; gap: .5rem; text-align: left; background: none; border: 0;
+                    padding: .25rem .3rem; border-radius: 6px; }
+  .list li button:hover, .list li button.hl { background: var(--bg); }
+  .swatch { flex: none; width: .8rem; height: .8rem; border-radius: 3px; background: hsl(var(--h) var(--fill-s) var(--fill-l)); border: 1px solid var(--line); }
+  .note { color: var(--muted); font-size: .9rem; margin: 0; }
   footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; }
-  li { margin: .35rem 0; }
+
+  @media (max-width: 860px) {
+    .explorer { grid-template-columns: 1fr; }
+    .stage { height: 52vh; }
+    .panel { max-height: none; }
+  }
 </style>
 </head>
 <body>
-<main>
+<div class="wrap">
 <h1>Territory of Indonesia</h1>
-<p>Administrative boundaries of Indonesia as GeoJSON, from provinces down to villages, built from
-<a href="https://www.openstreetmap.org/">OpenStreetMap</a>. This site serves the newest release of the
-<code>index</code> and <code>simplified</code> tiers. The files are served with CORS enabled, so a web page can fetch them directly.</p>
+<p class="lead">Administrative boundaries of Indonesia from provinces down to villages, built from
+<a href="https://www.openstreetmap.org/">OpenStreetMap</a>. Click the map to dig in. Everything below is the
+real dataset, fetched file by file, with no server behind it.</p>
+<noscript><p>The explorer needs JavaScript. The data itself is linked further down.</p></noscript>
 
-<p id="asof">Loading release information…</p>
-<table id="counts" hidden><tbody></tbody></table>
+<div class="explorer">
+  <div class="stage" id="stage">
+    <svg id="map" role="group" aria-label="Map of Indonesia's administrative regions. Use the list beside it for keyboard access.">
+      <g id="ctx"></g><g id="act"></g><g id="foc"></g>
+    </svg>
+    <div class="bar">
+      <button id="up" type="button" title="Up one level (Esc)" disabled>↑ Up</button>
+      <button id="reset" type="button" title="Back to all of Indonesia" disabled>Indonesia</button>
+    </div>
+    <div class="busy" id="busy" role="status" hidden>Loading…</div>
+    <div class="error" id="error" role="alert" hidden></div>
+    <div class="tip" id="tip" role="tooltip" hidden></div>
+    <div class="credit">© OpenStreetMap contributors</div>
+  </div>
 
-<h2>Start here</h2>
+  <aside class="panel" aria-label="Details">
+    <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+    <div class="search">
+      <input id="q" type="search" placeholder="Search provinces and regencies" autocomplete="off" aria-label="Search provinces and regencies">
+      <ul class="hits" id="hits" hidden></ul>
+    </div>
+    <div class="info" id="info"></div>
+    <div class="list">
+      <div class="filter"><input id="filter" type="search" placeholder="Filter this list" autocomplete="off" aria-label="Filter this list"></div>
+      <div id="list"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="prose">
+<h2>Use the data</h2>
 <ul>
   <li><a href="v2/index/provinces.json">v2/index/provinces.json</a>: the provinces, without geometry. Each entry's <code>children</code> says which files exist below it.</li>
-  <li><a href="v2/simplified/provinces.geojson">v2/simplified/provinces.geojson</a>: the provinces with simplified geometry, for drawing maps.</li>
+  <li><a href="v2/simplified/provinces.geojson">v2/simplified/provinces.geojson</a>: the provinces with simplified geometry, for drawing maps. This is the file the map above starts with.</li>
   <li><a href="v2/manifest.json">v2/manifest.json</a>: what this release contains and exactly which OpenStreetMap files it came from.</li>
   <li><a href="v2/report.json">v2/report.json</a>: what looked wrong in OpenStreetMap while building it.</li>
 </ul>
@@ -59,34 +155,374 @@ const regencies = await (await fetch(`${base}/index/regencies/${jabar.osm_id}.js
   <li>This is always the <strong>newest</strong> release, so a file can change under the same URL. To pin a version, download a zip from the
     <a href="https://github.com/rubichandrap/territory-of-indonesia/releases">Releases page</a>, which also has the full-resolution tier.</li>
   <li>The <code>v2</code> in the path is the format version, not a date. A future incompatible format would get a new path.</li>
-  <li>Coverage below the regency level is partial. <a href="v2/report.json">report.json</a> and the
+  <li>Coverage below the regency level is partial: OpenStreetMap has not been mapped that far everywhere. A region with no list under it simply has nothing finer yet.
+    <a href="v2/report.json">report.json</a> and the
     <a href="https://github.com/rubichandrap/territory-of-indonesia#readme">README</a> say exactly what is and is not there.</li>
+  <li>The map uses the simplified tier, so shapes are approximate. Use the full tier for precise areas.</li>
 </ul>
+</div>
 
 <footer>
   Data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, available under the
   <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>. Code is MIT.
   <a href="https://github.com/rubichandrap/territory-of-indonesia">Source on GitHub</a>.
 </footer>
-</main>
+</div>
 
 <script>
-fetch("v2/manifest.json")
-  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then((m) => {
-    const when = (m.source && m.source.osm_timestamp || "").slice(0, 10);
-    document.getElementById("asof").textContent = "Current release: OpenStreetMap data as of " + when + ".";
-    const body = document.querySelector("#counts tbody");
-    for (const level of ["provinces", "regencies", "districts", "villages"]) {
-      const row = body.insertRow();
-      row.insertCell().textContent = level;
-      row.insertCell().textContent = Number(m.counts[level]).toLocaleString("en");
+(() => {
+"use strict";
+const BASE = "v2/";
+const $ = (id) => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const svg = $("map"), gCtx = $("ctx"), gAct = $("act"), gFoc = $("foc"), stage = $("stage"), tip = $("tip");
+const RAD = Math.PI / 180;
+// Web Mercator, so shapes keep their proportions at every zoom.
+const py = (lat) => -Math.log(Math.tan(Math.PI / 4 + (lat * RAD) / 2)) / RAD;
+const LEVELS = { provinces: "Provinces", regencies: "Regencies", districts: "Districts", villages: "Villages" };
+const KIND = { province: "Province", regency: "Regency", district: "District", village: "Village" };
+
+// Element builder. Data from OpenStreetMap only ever goes in through textContent.
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "text") el.textContent = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid != null) el.append(kid);
+  return el;
+}
+
+// ---- data -----------------------------------------------------------------
+const cache = new Map();
+function getJSON(url) {
+  if (!cache.has(url)) {
+    const p = fetch(BASE + url).then((r) => { if (!r.ok) throw new Error(r.status + " " + url); return r.json(); });
+    p.catch(() => cache.delete(url));
+    cache.set(url, p);
+  }
+  return cache.get(url);
+}
+
+function toPath(geom) {
+  const polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+  let d = "";
+  for (const poly of polys) for (const ring of poly) {
+    for (let i = 0; i < ring.length; i++) d += (i ? "L" : "M") + ring[i][0].toFixed(5) + " " + py(ring[i][1]).toFixed(5);
+    d += "Z";
+  }
+  return d;
+}
+
+const layers = new Map();
+// The regions directly inside `focus` (or the provinces when focus is null),
+// with their drawable paths. One small file per group, fetched on demand.
+function loadLayer(focus) {
+  const key = focus ? focus.osm_id : 0;
+  if (!layers.has(key)) {
+    const p = (async () => {
+      const groups = focus ? Object.keys(focus.children || {}) : ["provinces"];
+      const feats = [], files = [];
+      await Promise.all(groups.map(async (g) => {
+        const idx = g === "provinces" ? "index/provinces.json" : `index/${g}/${focus.osm_id}.json`;
+        const geo = g === "provinces" ? "simplified/provinces.geojson" : `simplified/${g}/${focus.osm_id}.geojson`;
+        const [entries, fc] = await Promise.all([getJSON(idx), getJSON(geo)]);
+        files.push({ group: g, url: BASE + geo });
+        const byId = new Map(fc.features.map((f) => [f.id, f]));
+        for (const e of entries) {
+          const f = byId.get(e.osm_id);
+          if (!f) continue;
+          const [w, s, ea, n] = e.bbox;
+          feats.push({ entry: e, d: toPath(f.geometry), box: [w, py(n), ea, py(s)] });
+        }
+      }));
+      feats.sort((a, b) => a.entry.admin_level - b.entry.admin_level || a.entry.name.localeCompare(b.entry.name, "id"));
+      feats.forEach((f, i) => { f.hue = Math.round((i * 137.508) % 360); });
+      return { focus, feats, files };
+    })();
+    p.catch(() => layers.delete(key));
+    layers.set(key, p);
+  }
+  return layers.get(key);
+}
+
+// ---- state and routing ------------------------------------------------------
+let S = null;           // { path: [entry], layers: [layer] }, layers[k] = regions inside path[k-1]
+let manifest = null;
+let nav = 0;
+
+const idsFromHash = () => location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(Number).filter(Number.isFinite);
+const goIds = (ids) => { location.hash = ids.length ? "#/" + ids.join("/") : "#/"; };
+
+async function route() {
+  const mine = ++nav;
+  busy(true); fail(null);
+  try {
+    const stack = [await loadLayer(null)], path = [];
+    for (const id of idsFromHash()) {
+      const f = stack[stack.length - 1].feats.find((x) => x.entry.osm_id === id);
+      if (!f) break;
+      path.push(f.entry);
+      stack.push(f.entry.children ? await loadLayer(f.entry) : { focus: f.entry, feats: [], files: [] });
+      if (mine !== nav) return;
     }
-    document.getElementById("counts").hidden = false;
-  })
-  .catch(() => {
-    document.getElementById("asof").textContent = "Release information is unavailable right now.";
-  });
+    if (mine !== nav) return;
+    S = { path, layers: stack };
+    render();
+  } catch (err) {
+    if (mine === nav) fail(err);
+  } finally {
+    if (mine === nav) busy(false);
+  }
+}
+
+// ---- drawing ----------------------------------------------------------------
+const label = (e) => `${e.official_name || e.name} (${e.kind || KIND[e.level].toLowerCase()})`;
+let byId = new Map();
+
+function drawLayer(g, feats, cls, tabbable) {
+  g.textContent = "";
+  for (const f of feats) {
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", f.d);
+    p.setAttribute("class", cls);
+    p.style.setProperty("--h", f.hue);
+    p.dataset.id = f.entry.osm_id;
+    p.setAttribute("role", "button");
+    p.setAttribute("tabindex", tabbable ? "0" : "-1");
+    p.setAttribute("aria-label", label(f.entry));
+    g.appendChild(p);
+    byId.set(f.entry.osm_id, f);
+  }
+}
+
+function render() {
+  const { path, layers: L } = S, n = path.length;
+  const act = L[n], ctx = n ? L[n - 1] : null, focus = n ? path[n - 1] : null;
+  byId = new Map();
+  drawLayer(gCtx, ctx ? ctx.feats.filter((f) => f.entry.osm_id !== focus.osm_id) : [], "ctx", false);
+  drawLayer(gAct, act.feats, "act", true);
+
+  gFoc.textContent = "";
+  let box = null;
+  if (focus) {
+    const ff = ctx.feats.find((f) => f.entry.osm_id === focus.osm_id);
+    if (ff) {
+      const p = document.createElementNS(NS, "path");
+      p.setAttribute("d", ff.d);
+      p.setAttribute("class", "foc" + (act.feats.length ? "" : " leaf"));
+      p.style.setProperty("--h", ff.hue);
+      gFoc.appendChild(p);
+      box = ff.box;
+    }
+  }
+  // Frame what the user can click: the children when there are any. A
+  // province polygon often includes offshore waters, which would leave the
+  // regencies small and off to one side.
+  const union = (feats) => feats.reduce((b, f) => [Math.min(b[0], f.box[0]), Math.min(b[1], f.box[1]), Math.max(b[2], f.box[2]), Math.max(b[3], f.box[3])],
+                                        [Infinity, Infinity, -Infinity, -Infinity]);
+  if (act.feats.length) box = union(act.feats);
+  if (!box) box = union(L[0].feats);
+  target = box;
+  sizeStage(box);
+  animateTo(fit(box));
+
+  $("up").disabled = $("reset").disabled = n === 0;
+  document.title = (focus ? focus.name + " · " : "") + "Territory of Indonesia";
+  renderCrumbs(); renderInfo(); renderList();
+}
+
+// On a narrow screen the map sits above the panel, so let its height follow the
+// shape of what is shown: short for wide Indonesia, taller for a tall region.
+const narrow = matchMedia("(max-width: 860px)");
+function sizeStage(box) {
+  if (!narrow.matches) { stage.style.height = ""; return; }
+  const ratio = ((box[3] - box[1]) || 0.05) / ((box[2] - box[0]) || 0.05);
+  stage.style.height = Math.round(Math.min(innerHeight * 0.7, Math.max(230, stage.clientWidth * ratio * 1.25))) + "px";
+}
+
+// ---- camera -----------------------------------------------------------------
+let view = null, target = null, raf = 0;
+function fit(box) {
+  const r = svg.getBoundingClientRect(), aspect = (r.width || 1) / (r.height || 1);
+  let w = (box[2] - box[0]) * 1.12 || 0.05, h = (box[3] - box[1]) * 1.12 || 0.05;
+  if (w / h > aspect) h = w / aspect; else w = h * aspect;
+  // Never zoom in further than about 3 km across: the simplified shapes are
+  // meant for drawing regions, and a single village is better seen in context.
+  const MIN_SPAN = 0.03, big = Math.max(w, h);
+  if (big < MIN_SPAN) { w *= MIN_SPAN / big; h *= MIN_SPAN / big; }
+  const cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2;
+  return { x: cx - w / 2, y: cy - h / 2, w, h };
+}
+function setView(v) { view = v; svg.setAttribute("viewBox", `${v.x} ${v.y} ${v.w} ${v.h}`); }
+function animateTo(t) {
+  cancelAnimationFrame(raf);
+  if (!view || matchMedia("(prefers-reduced-motion: reduce)").matches) return setView(t);
+  const a = view, t0 = performance.now(), D = 600;
+  const step = (now) => {
+    let k = Math.min(1, (now - t0) / D);
+    k = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    setView({ x: a.x + (t.x - a.x) * k, y: a.y + (t.y - a.y) * k, w: a.w + (t.w - a.w) * k, h: a.h + (t.h - a.h) * k });
+    if (k < 1) raf = requestAnimationFrame(step);
+  };
+  raf = requestAnimationFrame(step);
+}
+addEventListener("resize", () => { if (target) { cancelAnimationFrame(raf); sizeStage(target); setView(fit(target)); } });
+
+// ---- panel ------------------------------------------------------------------
+function renderCrumbs() {
+  const { path } = S, nav_ = $("crumbs");
+  nav_.textContent = "";
+  const crumb = (text, ids, last) => last ? h("b", { text }) : h("button", { type: "button", text, onclick: () => goIds(ids) });
+  nav_.append(crumb("Indonesia", [], path.length === 0));
+  path.forEach((e, i) => nav_.append("›", crumb(e.name, path.slice(0, i + 1).map((x) => x.osm_id), i === path.length - 1)));
+}
+
+function count(n) { return Number(n).toLocaleString("en"); }
+
+function renderInfo() {
+  const { path, layers: L } = S, n = path.length, info = $("info");
+  info.textContent = "";
+  if (!n) {
+    info.append(h("h2", { text: "Indonesia" }),
+      h("p", { class: "sub", text: manifest ? `OpenStreetMap data as of ${manifest.source.osm_timestamp.slice(0, 10)}` : "" }),
+      h("p", { class: "note", text: "Click a province, pick one from the list, or search. Each click loads only the next level." }));
+    if (manifest) info.append(h("dl", {}, ...["provinces", "regencies", "districts", "villages"].flatMap((k) => [h("dt", { text: LEVELS[k] }), h("dd", { text: count(manifest.counts[k]) })])));
+    return;
+  }
+  const e = path[n - 1], kids = e.children || {}, rows = [];
+  const row = (k, v) => v && rows.push(h("dt", { text: k }), h("dd", {}, v));
+  row("Official name", e.official_name && e.official_name !== e.name ? e.official_name : null);
+  row("English name", e.name_en);
+  row("Kemendagri code", e.code);
+  row("Inside", path.length > 1 ? path.slice(0, -1).map((x) => x.name).join(" › ") : null);
+  row("Contains", Object.keys(kids).length ? Object.entries(kids).map(([k, v]) => `${count(v)} ${k}`).join(", ") : null);
+  row("OpenStreetMap", h("a", { href: `https://www.openstreetmap.org/relation/${e.osm_id}`, target: "_blank", rel: "noopener", text: `relation ${e.osm_id}` }));
+  row("Wikidata", e.wikidata ? h("a", { href: `https://www.wikidata.org/wiki/${e.wikidata}`, target: "_blank", rel: "noopener", text: e.wikidata }) : null);
+  const actions = h("div", { class: "actions" });
+  for (const f of L[n].files) actions.append(h("a", { href: f.url, text: `GeoJSON: ${f.group}` }));
+  if (!L[n].files.length) {
+    // A region with nothing below it: link the file it is drawn from.
+    const plural = { province: "provinces", regency: "regencies", district: "districts", village: "villages" }[e.level];
+    const url = BASE + "simplified/" + (e.level === "province" ? "provinces.geojson" : `${plural}/${e.parent_id}.geojson`);
+    actions.append(h("a", { href: url, text: "GeoJSON of this level" }));
+  }
+  actions.append(h("button", { type: "button", text: "Copy link to this view", onclick: (ev) => copy(location.href, ev.target) }));
+  info.append(h("h2", { text: e.name }), h("p", { class: "sub", text: e.kind && e.kind !== e.level ? `${e.kind} · ${e.level}` : e.level }),
+    h("dl", {}, rows), actions);
+}
+
+function copy(text, btn) {
+  const done = () => { const old = btn.textContent; btn.textContent = "Copied"; setTimeout(() => { btn.textContent = old; }, 1400); };
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => {});
+}
+
+function renderList() {
+  const { path, layers: L } = S, n = path.length, list = $("list"), q = $("filter").value.trim().toLowerCase();
+  list.textContent = "";
+  let feats = L[n].feats, lateral = false;
+  if (!feats.length && n) { feats = L[n - 1].feats; lateral = true; }
+  if (!feats.length) return;
+  const shown = feats.filter((f) => !q || (f.entry.name + " " + (f.entry.official_name || "")).toLowerCase().includes(q));
+  if (!L[n].feats.length) list.append(h("p", { class: "note", text: "OpenStreetMap has no finer boundaries mapped inside this region yet. Other regions at the same level:" }));
+  const groups = new Map();
+  for (const f of shown) { const g = f.entry.level; (groups.get(g) || groups.set(g, []).get(g)).push(f); }
+  for (const [g, fs] of groups) {
+    list.append(h("h3", { text: `${KIND[g]}s (${fs.length})` }),
+      h("ul", {}, fs.map((f) => h("li", {}, h("button", {
+        type: "button", "data-id": f.entry.osm_id, style: `--h:${f.hue}`,
+        onclick: () => goIds(lateral ? path.slice(0, -1).map((x) => x.osm_id).concat(f.entry.osm_id) : path.map((x) => x.osm_id).concat(f.entry.osm_id)),
+        onmouseenter: () => hl(f.entry.osm_id, true), onmouseleave: () => hl(f.entry.osm_id, false), onfocus: () => hl(f.entry.osm_id, true), onblur: () => hl(f.entry.osm_id, false),
+      }, h("span", { class: "swatch" }), h("span", {}, f.entry.name, f.entry.kind ? h("small", { text: "  " + f.entry.kind }) : null))))));
+  }
+  if (!shown.length) list.append(h("p", { class: "note", text: "Nothing matches." }));
+}
+$("filter").addEventListener("input", () => S && renderList());
+
+function hl(id, on) {
+  const p = svg.querySelector(`path[data-id="${id}"]`);
+  if (!p) return;
+  p.classList.toggle("hl", on);
+  if (on && p.parentNode && p.parentNode.lastChild !== p) p.parentNode.appendChild(p);
+}
+
+// ---- map interaction ---------------------------------------------------------
+const target_id = (ev) => { const p = ev.target.closest && ev.target.closest("path[data-id]"); return p ? Number(p.dataset.id) : null; };
+function pick(id) {
+  if (!S) return;
+  const f = byId.get(id);
+  if (!f) return;
+  const ids = S.path.map((x) => x.osm_id), inAct = S.layers[S.path.length].feats.includes(f);
+  goIds(inAct ? ids.concat(id) : ids.slice(0, -1).concat(id));
+}
+svg.addEventListener("click", (ev) => { const id = target_id(ev); if (id) pick(id); });
+svg.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { const id = target_id(ev); if (id) { ev.preventDefault(); pick(id); } } });
+svg.addEventListener("pointerover", (ev) => { const id = target_id(ev); if (id) { hl(id, true); showTip(ev, id); } });
+svg.addEventListener("pointermove", (ev) => { if (!tip.hidden) placeTip(ev); });
+svg.addEventListener("pointerout", (ev) => { const id = target_id(ev); if (id) { hl(id, false); tip.hidden = true; } });
+function showTip(ev, id) {
+  const e = byId.get(id).entry;
+  tip.textContent = "";
+  tip.append(e.name, h("small", { text: `${e.kind || KIND[e.level].toLowerCase()}${e.children ? " · click to open" : ""}` }));
+  tip.hidden = false; placeTip(ev);
+}
+function placeTip(ev) {
+  const r = stage.getBoundingClientRect();
+  tip.style.left = Math.min(ev.clientX - r.left + 14, r.width - tip.offsetWidth - 6) + "px";
+  tip.style.top = Math.min(ev.clientY - r.top + 14, r.height - tip.offsetHeight - 6) + "px";
+}
+const up = () => { if (S && S.path.length) goIds(S.path.slice(0, -1).map((x) => x.osm_id)); };
+$("up").addEventListener("click", up);
+$("reset").addEventListener("click", () => goIds([]));
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) up(); });
+addEventListener("hashchange", route);
+
+// ---- search (provinces and regencies, loaded on first use) --------------------
+let searchIndex = null;
+function ensureSearch() {
+  if (!searchIndex) searchIndex = (async () => {
+    const provs = await getJSON("index/provinces.json");
+    const regs = await Promise.all(provs.map((p) => getJSON(`index/regencies/${p.osm_id}.json`).catch(() => [])));
+    const out = provs.map((p) => ({ e: p, ids: [p.osm_id], sub: "province" }));
+    provs.forEach((p, i) => regs[i].forEach((r) => out.push({ e: r, ids: [p.osm_id, r.osm_id], sub: `${r.kind || "regency"} in ${p.name}` })));
+    out.forEach((o) => { o.hay = [o.e.name, o.e.official_name, o.e.name_en].filter(Boolean).join(" ").toLowerCase(); });
+    return out;
+  })().catch((err) => { searchIndex = null; throw err; });
+  return searchIndex;
+}
+const q = $("q"), hits = $("hits");
+q.addEventListener("focus", () => ensureSearch().catch(() => {}));
+q.addEventListener("input", async () => {
+  const term = q.value.trim().toLowerCase();
+  hits.textContent = "";
+  if (!term) { hits.hidden = true; return; }
+  let idx;
+  try { idx = await ensureSearch(); } catch { return; }
+  if (q.value.trim().toLowerCase() !== term) return;
+  const found = idx.filter((o) => o.hay.includes(term))
+    .sort((a, b) => (b.e.name.toLowerCase().startsWith(term)) - (a.e.name.toLowerCase().startsWith(term)) || a.e.admin_level - b.e.admin_level).slice(0, 8);
+  hits.hidden = false;
+  if (!found.length) hits.append(h("li", { class: "note", text: "No province or regency matches." }));
+  for (const o of found) hits.append(h("li", {}, h("button", { type: "button", onclick: () => { q.value = ""; hits.hidden = true; goIds(o.ids); } },
+    o.e.name, h("small", { text: "  " + o.sub }))));
+});
+q.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { const b = hits.querySelector("button"); if (b) b.click(); } if (ev.key === "Escape") { q.value = ""; hits.hidden = true; } });
+
+// ---- status -------------------------------------------------------------------
+const busyEl = $("busy"), errEl = $("error");
+let busyTimer = 0;
+function busy(on) { clearTimeout(busyTimer); if (!on) { busyEl.hidden = true; return; } busyTimer = setTimeout(() => { busyEl.hidden = false; }, 250); }
+function fail(err) {
+  errEl.textContent = "";
+  errEl.hidden = !err;
+  if (err) errEl.append("Could not load the map data (" + err.message + "). ", h("button", { type: "button", text: "Try again", onclick: route }));
+}
+
+getJSON("manifest.json").then((m) => { manifest = m; if (S) renderInfo(); }).catch(() => {});
+if (!location.hash) history.replaceState(null, "", "#/");
+route();
+})();
 </script>
 </body>
 </html>
