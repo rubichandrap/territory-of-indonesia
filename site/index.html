@@ -67,8 +67,8 @@
   path.ctx { fill: hsl(var(--h) 10% var(--ctx-l)); opacity: .7; cursor: pointer; }
   path.ctx:hover { opacity: 1; }
   path.foc { fill: none; stroke: var(--accent); stroke-width: 2.25; pointer-events: none; }
-  /* A village is the finest level: selected, but not missing data, so it keeps
-     its palette colour instead of the hatch. */
+  /* A focused region with no child polygons keeps its palette colour: it is a
+     normal region, not a gap. */
   path.foc.leaf { fill: hsl(var(--h) var(--s, var(--land-s)) var(--land-l)); }
   /* Areas of a drawn region that OpenStreetMap has no finer boundary for: a
      neutral hatch, so a gap reads as missing data and not as the page below. */
@@ -405,11 +405,10 @@ function render() {
   if (focus) {
     const ff = ctx.feats.find((f) => f.entry.osm_id === focus.osm_id);
     if (ff) {
-      // A hatch means missing data. Show it between child polygons when there
-      // are any, and over the whole region when a level that should have
-      // children has none. A village is the finest level, so it is never
-      // hatched for having no children.
-      if (act.feats.length || focus.level !== "village") {
+      // The hatch marks ground that no child polygon covers. A region without
+      // child polygons has no ground to compare against, so it is a normal
+      // coloured region, not a hatch.
+      if (act.feats.length) {
         const gap = document.createElementNS(NS, "path");
         gap.setAttribute("d", ff.d);
         gap.setAttribute("class", "gap");
@@ -417,7 +416,7 @@ function render() {
       }
       const p = document.createElementNS(NS, "path");
       p.setAttribute("d", ff.d);
-      p.setAttribute("class", "foc" + (!act.feats.length && focus.level === "village" ? " leaf" : ""));
+      p.setAttribute("class", "foc" + (act.feats.length ? "" : " leaf"));
       p.style.setProperty("--h", ff.hue);
       p.style.setProperty("--s", ff.sat + "%");
       gFoc.appendChild(p);
@@ -436,7 +435,7 @@ function render() {
   animateTo(fit(box));
 
   $("up").disabled = $("reset").disabled = n === 0;
-  $("legend").hidden = !(focus && (act.feats.length || focus.level !== "village"));
+  $("legend").hidden = !(focus && act.feats.length);
   document.title = (focus ? focus.name + " · " : "") + "Territory of Indonesia";
   renderCrumbs(); renderInfo(); renderList();
 }
