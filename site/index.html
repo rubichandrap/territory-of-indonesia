@@ -67,7 +67,9 @@
   path.ctx { fill: hsl(var(--h) 10% var(--ctx-l)); opacity: .7; cursor: pointer; }
   path.ctx:hover { opacity: 1; }
   path.foc { fill: none; stroke: var(--accent); stroke-width: 2.25; pointer-events: none; }
-  path.foc.leaf { fill: hsl(var(--h) var(--s, var(--land-s)) var(--land-l)); }
+  /* Areas of a drawn region that OpenStreetMap has no finer boundary for: a
+     neutral hatch, so a gap reads as missing data and not as the page below. */
+  path.gap { fill: url(#nodata); stroke: none; pointer-events: none; }
 
   .up { position: absolute; left: .7rem; top: .7rem; z-index: 2; display: inline-flex; align-items: center; gap: .35rem; height: 2.1rem; padding: 0 .8rem;
         background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; font-size: .88rem; box-shadow: var(--shadow); }
@@ -80,6 +82,12 @@
                   border-radius: 999px; padding: .3rem 1rem; font-size: .88rem; box-shadow: var(--shadow); }
   .error { border-radius: var(--radius-sm); color: var(--accent); text-align: center; max-width: 90%; }
   .credit { position: absolute; right: .6rem; bottom: .45rem; font-size: .7rem; color: var(--muted); }
+  .legend { position: absolute; left: .7rem; bottom: .55rem; z-index: 2; display: inline-flex; align-items: center; gap: .4rem;
+            padding: .18rem .55rem; font-size: .72rem; color: var(--muted); background: var(--surface); border: 1px solid var(--line);
+            border-radius: 999px; pointer-events: none; }
+  .legend[hidden] { display: none; }
+  .legend i { width: .9rem; height: .7rem; border: 1px solid var(--line-strong); background-color: var(--sea);
+              background-image: repeating-linear-gradient(45deg, var(--muted) 0 1px, transparent 1px 4px); }
 
   .panel { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); min-height: 0; }
   .scroll { position: absolute; inset: 0; overflow: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
@@ -158,13 +166,20 @@
 <div class="explorer">
   <div class="stage" id="stage">
     <svg id="map" role="group" aria-label="Map of Indonesia's administrative regions. Use the list beside it for keyboard access.">
-      <g id="ctx"></g><g id="act"></g><g id="foc"></g>
+      <defs>
+        <pattern id="nodata" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="8" height="8" fill="var(--sea)"/>
+          <line x1="0" y1="0" x2="0" y2="8" stroke="var(--muted)" stroke-width="1.3" opacity=".75"/>
+        </pattern>
+      </defs>
+      <g id="under"></g><g id="ctx"></g><g id="act"></g><g id="foc"></g>
     </svg>
     <button class="up" id="up" type="button" title="Up one level (Esc)" disabled>↑ Up</button>
     <button id="reset" type="button" hidden>Indonesia</button>
     <div class="busy" id="busy" role="status" hidden>Loading…</div>
     <div class="error" id="error" role="alert" hidden></div>
     <div class="tip" id="tip" role="tooltip" hidden></div>
+    <div class="legend" id="legend" hidden><i></i>No finer boundary mapped</div>
     <div class="credit">© OpenStreetMap contributors</div>
   </div>
 
@@ -213,7 +228,7 @@ const regencies = await (await fetch(`${base}/index/regencies/${jabar.osm_id}.js
     <a href="https://github.com/rubichandrap/territory-of-indonesia/releases">Releases page</a>, which also has the full-resolution tier.</li>
   <li>The <code>v2</code> in the path is the format version, not a date. A future incompatible format would get a new path.</li>
   <li>Provinces are drawn as land: OpenStreetMap's own province polygons include territorial waters, so each province here is the union of its regencies.</li>
-  <li>Coverage below the regency level is partial: OpenStreetMap has not been mapped that far everywhere. A region with no list under it simply has nothing finer yet.
+  <li>Coverage below the regency level is partial: OpenStreetMap has not been mapped that far everywhere. Areas drawn with a diagonal hatch are the parts with no finer boundary yet, so there is nothing there to open.
     <a href="v2/report.json">report.json</a> and the
     <a href="https://github.com/rubichandrap/territory-of-indonesia#readme">README</a> say exactly what is and is not there.</li>
   <li>The map uses the simplified tier, so shapes are approximate. Use the full tier for precise areas.</li>
@@ -233,7 +248,7 @@ const regencies = await (await fetch(`${base}/index/regencies/${jabar.osm_id}.js
 const BASE = "v2/";
 const $ = (id) => document.getElementById(id);
 const NS = "http://www.w3.org/2000/svg";
-const svg = $("map"), gCtx = $("ctx"), gAct = $("act"), gFoc = $("foc"), stage = $("stage"), tip = $("tip");
+const svg = $("map"), gUnder = $("under"), gCtx = $("ctx"), gAct = $("act"), gFoc = $("foc"), stage = $("stage"), tip = $("tip");
 const RAD = Math.PI / 180;
 // Web Mercator, so shapes keep their proportions at every zoom.
 const py = (lat) => -Math.log(Math.tan(Math.PI / 4 + (lat * RAD) / 2)) / RAD;
@@ -382,15 +397,20 @@ function render() {
   drawLayer(gAct, act.feats, "act", true);
 
   gFoc.textContent = "";
+  gUnder.textContent = "";
   let box = null;
   if (focus) {
     const ff = ctx.feats.find((f) => f.entry.osm_id === focus.osm_id);
     if (ff) {
+      // The whole focused region first, hatched: where no child polygon covers
+      // it, OpenStreetMap has no finer boundary, and the gap says so.
+      const gap = document.createElementNS(NS, "path");
+      gap.setAttribute("d", ff.d);
+      gap.setAttribute("class", "gap");
+      gUnder.appendChild(gap);
       const p = document.createElementNS(NS, "path");
       p.setAttribute("d", ff.d);
-      p.setAttribute("class", "foc" + (act.feats.length ? "" : " leaf"));
-      p.style.setProperty("--h", ff.hue);
-      p.style.setProperty("--s", ff.sat + "%");
+      p.setAttribute("class", "foc");
       gFoc.appendChild(p);
       box = ff.box;
     }
@@ -407,6 +427,7 @@ function render() {
   animateTo(fit(box));
 
   $("up").disabled = $("reset").disabled = n === 0;
+  $("legend").hidden = !focus;
   document.title = (focus ? focus.name + " · " : "") + "Territory of Indonesia";
   renderCrumbs(); renderInfo(); renderList();
 }
@@ -433,7 +454,13 @@ function fit(box) {
   const cx = (box[0] + box[2]) / 2, cy = (box[1] + box[3]) / 2;
   return { x: cx - w / 2, y: cy - h / 2, w, h };
 }
-function setView(v) { view = v; svg.setAttribute("viewBox", `${v.x} ${v.y} ${v.w} ${v.h}`); }
+function setView(v) {
+  view = v;
+  svg.setAttribute("viewBox", `${v.x} ${v.y} ${v.w} ${v.h}`);
+  // Keep the hatch at 8 screen pixels whatever the zoom: pattern units are user
+  // units, which shrink as the viewBox widens.
+  $("nodata").setAttribute("patternTransform", `rotate(45) scale(${v.w / (svg.clientWidth || 1)})`);
+}
 function animateTo(t) {
   cancelAnimationFrame(raf);
   if (!view || matchMedia("(prefers-reduced-motion: reduce)").matches) return setView(t);
