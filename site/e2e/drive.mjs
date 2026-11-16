@@ -105,6 +105,8 @@ await waitFor(`location.hash.split('/').length - 1 === 4`); await sleep(900);
 s = await state();
 check("a village has nothing below it: siblings stay as context", s.act === 0 && s.ctx >= 1, s); await shot("6-leaf");
 check("a village is the finest level: no missing-area hatch is drawn", s.under === 0, s);
+const leafFill = await ev(`getComputedStyle(document.querySelector('#foc path')).fill`);
+check("a selected village keeps its palette colour instead of a hatch", leafFill !== "none", leafFill);
 const note = await ev(`document.getElementById('list').innerText.slice(0, 200)`);
 check("a village reads as the finest level, not as missing data", /finest level/.test(note), note);
 
@@ -154,6 +156,9 @@ await send("Page.navigate", { url: BASE + "#/" + childless.p.osm_id + "/" + chil
 await waitFor(`document.querySelectorAll('#foc path').length === 1`); await sleep(900);
 const sc = await state();
 check("a regency with no districts is hatched as missing data", sc.act === 0 && sc.under === 1, { regency: childless.r.name, ...sc });
+const childlessStyle = await ev(`(() => { const p = document.querySelector('#under path'); const cs = getComputedStyle(p); return { fill: cs.fill, pointerEvents: cs.pointerEvents }; })()`);
+check("the whole-region hatch is drawn and is not a click target",
+  childlessStyle.fill.includes("#nodata") && childlessStyle.pointerEvents === "none", childlessStyle);
 await shot("10-childless-regency");
 
 check("no console errors or exceptions", problems.length === 0, problems);
