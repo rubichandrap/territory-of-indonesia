@@ -31,11 +31,11 @@ Each release is published on the
 [Releases page](https://github.com/rubichandrap/territory-of-indonesia/releases)
 as one zip per tier, plus `manifest.json` and `report.json`:
 
-| Asset | Size | Use it for |
-|---|--:|---|
-| `territory-of-indonesia-index.zip` | 2.4 MB | dropdowns, search, map markers: properties, bounding box and a label point for every region, **no geometry** |
-| `territory-of-indonesia-simplified.zip` | 15 MB | drawing maps: GeoJSON with simplified geometry |
-| `territory-of-indonesia-full.zip` | 186 MB | analysis: GeoJSON with the geometry exactly as OpenStreetMap has it |
+| Asset | Zip | Unzipped | Use it for |
+|---|--:|--:|---|
+| `territory-of-indonesia-index.zip` | 0.7 MB | 2.4 MB | dropdowns, search, map markers: properties, bounding box and a label point for every region, **no geometry** |
+| `territory-of-indonesia-simplified.zip` | 4 MB | 15 MB | drawing maps: GeoJSON with simplified geometry |
+| `territory-of-indonesia-full.zip` | 57 MB | 186 MB | analysis: GeoJSON with the geometry exactly as OpenStreetMap has it |
 
 GitHub Releases cannot serve single files, so for a copy you can fetch file by
 file, use the hosted one below, or unzip a tier and host it yourself.
