@@ -143,6 +143,19 @@ await send("Page.navigate", { url: BASE }); await waitFor(`document.querySelecto
 const overflow = await ev(`document.documentElement.scrollWidth - document.documentElement.clientWidth`);
 check("no horizontal scrolling on a phone", overflow <= 1, overflow);
 
+// 8. A level that should have children but has none: the whole region is missing data.
+let childless = null;
+for (const p of provinces) {
+  const r = readJSON(`index/regencies/${p.osm_id}.json`).find((x) => !x.children);
+  if (r) { childless = { p, r }; break; }
+}
+await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+await send("Page.navigate", { url: BASE + "#/" + childless.p.osm_id + "/" + childless.r.osm_id });
+await waitFor(`document.querySelectorAll('#foc path').length === 1`); await sleep(900);
+const sc = await state();
+check("a regency with no districts is hatched as missing data", sc.act === 0 && sc.under === 1, { regency: childless.r.name, ...sc });
+await shot("10-childless-regency");
+
 check("no console errors or exceptions", problems.length === 0, problems);
 
 let failed = 0;

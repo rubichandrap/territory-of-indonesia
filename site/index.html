@@ -402,10 +402,11 @@ function render() {
   if (focus) {
     const ff = ctx.feats.find((f) => f.entry.osm_id === focus.osm_id);
     if (ff) {
-      // Only a region that has child polygons can show missing ground between
-      // them. A region with none is not hatched: having no children is not
-      // proof that its finer boundaries are missing.
-      if (act.feats.length) {
+      // A hatch means missing data. Show it between child polygons when there
+      // are any, and over the whole region when a level that should have
+      // children has none. A village is the finest level, so it is never
+      // hatched for having no children.
+      if (act.feats.length || focus.level !== "village") {
         const gap = document.createElementNS(NS, "path");
         gap.setAttribute("d", ff.d);
         gap.setAttribute("class", "gap");
@@ -430,7 +431,7 @@ function render() {
   animateTo(fit(box));
 
   $("up").disabled = $("reset").disabled = n === 0;
-  $("legend").hidden = !(focus && act.feats.length);
+  $("legend").hidden = !(focus && (act.feats.length || focus.level !== "village"));
   document.title = (focus ? focus.name + " · " : "") + "Territory of Indonesia";
   renderCrumbs(); renderInfo(); renderList();
 }
