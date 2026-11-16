@@ -145,7 +145,7 @@ await send("Page.navigate", { url: BASE }); await waitFor(`document.querySelecto
 const overflow = await ev(`document.documentElement.scrollWidth - document.documentElement.clientWidth`);
 check("no horizontal scrolling on a phone", overflow <= 1, overflow);
 
-// 8. A level that should have children but has none: the whole region is missing data.
+// 8. A region with no children is a normal coloured region, not a gap.
 let childless = null;
 for (const p of provinces) {
   const r = readJSON(`index/regencies/${p.osm_id}.json`).find((x) => !x.children);
@@ -155,10 +155,9 @@ await send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 900, dev
 await send("Page.navigate", { url: BASE + "#/" + childless.p.osm_id + "/" + childless.r.osm_id });
 await waitFor(`document.querySelectorAll('#foc path').length === 1`); await sleep(900);
 const sc = await state();
-check("a regency with no districts is hatched as missing data", sc.act === 0 && sc.under === 1, { regency: childless.r.name, ...sc });
-const childlessStyle = await ev(`(() => { const p = document.querySelector('#under path'); const cs = getComputedStyle(p); return { fill: cs.fill, pointerEvents: cs.pointerEvents }; })()`);
-check("the whole-region hatch is drawn and is not a click target",
-  childlessStyle.fill.includes("#nodata") && childlessStyle.pointerEvents === "none", childlessStyle);
+check("a regency with no districts gets no hatch", sc.act === 0 && sc.under === 0, { regency: childless.r.name, ...sc });
+const childlessFill = await ev(`getComputedStyle(document.querySelector('#foc path')).fill`);
+check("the childless regency is filled with its palette colour", childlessFill !== "none", childlessFill);
 await shot("10-childless-regency");
 
 check("no console errors or exceptions", problems.length === 0, problems);
