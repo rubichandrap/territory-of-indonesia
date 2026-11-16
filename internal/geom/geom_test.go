@@ -118,3 +118,25 @@ func TestRoundMergesDuplicatePointsAndClones(t *testing.T) {
 		t.Error("Round modified its input")
 	}
 }
+
+func TestDropSmallRemovesIslandsButKeepsTheLargest(t *testing.T) {
+	big := orb.Polygon{rect(0, 0, 10, 10)}
+	mid := orb.Polygon{rect(20, 20, 22, 22)}
+	speck := orb.Polygon{rect(30, 30, 30.01, 30.01)}
+
+	out, ok := DropSmall(orb.MultiPolygon{big, mid, speck}, 1).(orb.MultiPolygon)
+	if !ok || len(out) != 2 {
+		t.Fatalf("want the speck dropped, got %#v", out)
+	}
+
+	// Everything below the threshold: the largest polygon still survives, as a Polygon.
+	if p, ok := DropSmall(orb.MultiPolygon{mid, speck}, 100).(orb.Polygon); !ok || planarArea(p) != 4 {
+		t.Errorf("the largest polygon must always stay, got %#v", p)
+	}
+	// Anything that is not a MultiPolygon, or a zero threshold, is returned as is.
+	if _, ok := DropSmall(big, 5).(orb.Polygon); !ok {
+		t.Error("a Polygon must pass through")
+	}
+}
+
+func planarArea(p orb.Polygon) float64 { return Area(p) }

@@ -15,6 +15,7 @@ import (
 	"github.com/rubichandrap/territory-of-indonesia/internal/emit"
 	"github.com/rubichandrap/territory-of-indonesia/internal/fetch"
 	"github.com/rubichandrap/territory-of-indonesia/internal/hierarchy"
+	"github.com/rubichandrap/territory-of-indonesia/internal/land"
 	"github.com/rubichandrap/territory-of-indonesia/internal/model"
 	"github.com/rubichandrap/territory-of-indonesia/internal/osmium"
 	"github.com/rubichandrap/territory-of-indonesia/internal/report"
@@ -181,6 +182,18 @@ func build(log *slog.Logger, work, out string, stdout io.Writer) error {
 	log.Info("hierarchy resolved", "kept", len(tree.Regions), "issues", len(tree.Issues), "took", time.Since(start).Round(time.Millisecond))
 	if len(tree.Children[0]) == 0 {
 		return errors.New("no Indonesian province found in the extraction; refusing to write an empty dataset")
+	}
+	// OpenStreetMap's province polygons include territorial waters; publish the land.
+	var clipped int
+	var sea float64
+	for _, r := range land.ProvincesToLand(tree) {
+		if !r.Unchanged {
+			clipped++
+			sea += r.SeaShare
+		}
+	}
+	if clipped > 0 {
+		log.Info("province geometry reduced to land", "provinces", clipped, "average_sea_share", fmt.Sprintf("%.0f%%", 100*sea/float64(clipped)))
 	}
 
 	src := emit.Source{Name: "OpenStreetMap", Provider: "Geofabrik", Timestamp: meta.OldestTimestamp()}

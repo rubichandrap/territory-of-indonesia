@@ -386,7 +386,7 @@ function renderInfo() {
   info.textContent = "";
   if (!n) {
     info.append(h("h2", { text: "Indonesia" }),
-      h("p", { class: "sub", text: manifest ? `OpenStreetMap data as of ${manifest.source.osm_timestamp.slice(0, 10)}` : "" }),
+      h("p", { class: "sub", text: manifest && manifest.source && manifest.source.osm_timestamp ? `OpenStreetMap data as of ${manifest.source.osm_timestamp.slice(0, 10)}` : "" }),
       h("p", { class: "note", text: "Click a province, pick one from the list, or search. Each click loads only the next level." }));
     if (manifest) info.append(h("dl", {}, ...["provinces", "regencies", "districts", "villages"].flatMap((k) => [h("dt", { text: LEVELS[k] }), h("dd", { text: count(manifest.counts[k]) })])));
     return;

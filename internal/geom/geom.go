@@ -182,6 +182,34 @@ func Simplify(g orb.Geometry, tolerance float64) orb.Geometry {
 	return out
 }
 
+// DropSmall returns g without the polygons of a MultiPolygon whose area is
+// below minArea (square degrees), except that the largest polygon always stays.
+func DropSmall(g orb.Geometry, minArea float64) orb.Geometry {
+	mp, ok := g.(orb.MultiPolygon)
+	if !ok || minArea <= 0 {
+		return g
+	}
+	var biggest int
+	var biggestArea float64
+	areas := make([]float64, len(mp))
+	for i, p := range mp {
+		areas[i] = planar.Area(p)
+		if areas[i] > biggestArea {
+			biggest, biggestArea = i, areas[i]
+		}
+	}
+	var kept orb.MultiPolygon
+	for i, p := range mp {
+		if areas[i] >= minArea || i == biggest {
+			kept = append(kept, p)
+		}
+	}
+	if len(kept) == 1 {
+		return kept[0]
+	}
+	return kept
+}
+
 // Round returns a copy of g with every coordinate rounded to the given number
 // of decimals and consecutive duplicate points removed. Rings that collapse
 // below 4 points are removed; check the result with Validate.
