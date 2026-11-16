@@ -67,6 +67,9 @@
   path.ctx { fill: hsl(var(--h) 10% var(--ctx-l)); opacity: .7; cursor: pointer; }
   path.ctx:hover { opacity: 1; }
   path.foc { fill: none; stroke: var(--accent); stroke-width: 2.25; pointer-events: none; }
+  /* A village is the finest level: selected, but not missing data, so it keeps
+     its palette colour instead of the hatch. */
+  path.foc.leaf { fill: hsl(var(--h) var(--s, var(--land-s)) var(--land-l)); }
   /* Areas of a drawn region that OpenStreetMap has no finer boundary for: a
      neutral hatch, so a gap reads as missing data and not as the page below. */
   path.gap { fill: url(#nodata); stroke: none; pointer-events: none; }
@@ -414,7 +417,9 @@ function render() {
       }
       const p = document.createElementNS(NS, "path");
       p.setAttribute("d", ff.d);
-      p.setAttribute("class", "foc");
+      p.setAttribute("class", "foc" + (!act.feats.length && focus.level === "village" ? " leaf" : ""));
+      p.style.setProperty("--h", ff.hue);
+      p.style.setProperty("--s", ff.sat + "%");
       gFoc.appendChild(p);
       box = ff.box;
     }
