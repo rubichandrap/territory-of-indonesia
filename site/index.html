@@ -228,7 +228,7 @@ const regencies = await (await fetch(`${base}/index/regencies/${jabar.osm_id}.js
     <a href="https://github.com/rubichandrap/territory-of-indonesia/releases">Releases page</a>, which also has the full-resolution tier.</li>
   <li>The <code>v2</code> in the path is the format version, not a date. A future incompatible format would get a new path.</li>
   <li>Provinces are drawn as land: OpenStreetMap's own province polygons include territorial waters, so each province here is the union of its regencies.</li>
-  <li>Coverage below the regency level is partial: OpenStreetMap has not been mapped that far everywhere. Areas drawn with a diagonal hatch are the parts with no finer boundary yet, so there is nothing there to open.
+  <li>Coverage below the regency level is partial: OpenStreetMap has not been mapped that far everywhere. Within a region, areas drawn with a diagonal hatch are the parts with no finer boundary yet, so there is nothing there to open.
     <a href="v2/report.json">report.json</a> and the
     <a href="https://github.com/rubichandrap/territory-of-indonesia#readme">README</a> say exactly what is and is not there.</li>
   <li>The map uses the simplified tier, so shapes are approximate. Use the full tier for precise areas.</li>
@@ -402,12 +402,15 @@ function render() {
   if (focus) {
     const ff = ctx.feats.find((f) => f.entry.osm_id === focus.osm_id);
     if (ff) {
-      // The whole focused region first, hatched: where no child polygon covers
-      // it, OpenStreetMap has no finer boundary, and the gap says so.
-      const gap = document.createElementNS(NS, "path");
-      gap.setAttribute("d", ff.d);
-      gap.setAttribute("class", "gap");
-      gUnder.appendChild(gap);
+      // Only a region that has child polygons can show missing ground between
+      // them. A region with none is not hatched: having no children is not
+      // proof that its finer boundaries are missing.
+      if (act.feats.length) {
+        const gap = document.createElementNS(NS, "path");
+        gap.setAttribute("d", ff.d);
+        gap.setAttribute("class", "gap");
+        gUnder.appendChild(gap);
+      }
       const p = document.createElementNS(NS, "path");
       p.setAttribute("d", ff.d);
       p.setAttribute("class", "foc");
@@ -427,7 +430,7 @@ function render() {
   animateTo(fit(box));
 
   $("up").disabled = $("reset").disabled = n === 0;
-  $("legend").hidden = !focus;
+  $("legend").hidden = !(focus && act.feats.length);
   document.title = (focus ? focus.name + " · " : "") + "Territory of Indonesia";
   renderCrumbs(); renderInfo(); renderList();
 }
@@ -532,7 +535,9 @@ function renderList() {
   if (!feats.length) return;
   $("listtitle").textContent = `${heading} · ${feats.length}`;
   const shown = feats.filter((f) => !q || (f.entry.name + " " + (f.entry.official_name || "")).toLowerCase().includes(q));
-  if (!L[n].feats.length) list.append(h("p", { class: "note", text: "OpenStreetMap has no finer boundaries mapped inside this region yet. Other regions at the same level:" }));
+  if (!L[n].feats.length) list.append(h("p", { class: "note", text: path[n - 1].level === "village"
+    ? "Villages are the finest level in this dataset. Other villages:"
+    : "OpenStreetMap has no finer boundaries mapped inside this region yet. Other regions at the same level:" }));
   const groups = new Map();
   for (const f of shown) { const g = f.entry.level; (groups.get(g) || groups.set(g, []).get(g)).push(f); }
   for (const [g, fs] of groups) {
