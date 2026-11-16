@@ -90,7 +90,11 @@ await shot("3-regencies");
 check("clicks Kota Bandung", await click(bandung));
 await settled(2, districts.length); s = await state();
 check(`Kota Bandung shows ${districts.length} districts`, s.act === districts.length, s);
-check("the focused region has a hatched gap underlay", s.under === 1, s); await shot("4-districts");
+check("the focused region has a hatched gap underlay", s.under === 1, s);
+const gapStyle = await ev(`(() => { const p = document.querySelector('#under path'); const cs = getComputedStyle(p); return { fill: cs.fill, pointerEvents: cs.pointerEvents }; })()`);
+check("the gap underlay is hatched and not a click target",
+  gapStyle.fill.includes("#nodata") && gapStyle.pointerEvents === "none", gapStyle);
+await shot("4-districts");
 
 check("clicks Andir", await click(andir));
 await settled(3, villages.length); s = await state();
@@ -100,11 +104,9 @@ check("clicks a village", await click(villages[0]));
 await waitFor(`location.hash.split('/').length - 1 === 4`); await sleep(900);
 s = await state();
 check("a village has nothing below it: siblings stay as context", s.act === 0 && s.ctx >= 1, s); await shot("6-leaf");
+check("a village is the finest level: no missing-area hatch is drawn", s.under === 0, s);
 const note = await ev(`document.getElementById('list').innerText.slice(0, 200)`);
-check("a village explains there is nothing finer", /no finer boundaries/.test(note), note);
-const gapStyle = await ev(`(() => { const p = document.querySelector('#under path'); const cs = getComputedStyle(p); return { fill: cs.fill, pointerEvents: cs.pointerEvents }; })()`);
-check("the area with no finer boundary is hatched, not a palette colour, and not a click target",
-  gapStyle.fill.includes("#nodata") && gapStyle.pointerEvents === "none", gapStyle);
+check("a village reads as the finest level, not as missing data", /finest level/.test(note), note);
 
 // 4. Ways back.
 await ev(`history.back()`); await sleep(1500); s = await state();
