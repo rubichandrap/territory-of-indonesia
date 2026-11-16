@@ -1,0 +1,59 @@
+name: deploy-pages
+
+# Deploys site/index.html with the data of an existing release, without building
+# the dataset again. The monthly release-data workflow still deploys fresh data;
+# this one is for page-only changes, so a small site fix does not need the
+# 1.6 GB OpenStreetMap extract download.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to serve; leave empty for the newest release'
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency: deploy-pages
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download the data release
+        run: |
+          tag="$TAG"
+          if [ -z "$tag" ]; then tag=$(gh release view --json tagName --jq .tagName); fi
+          echo "Serving the data of $tag" >> "$GITHUB_STEP_SUMMARY"
+          gh release download "$tag" \
+            --pattern 'territory-of-indonesia-index.zip' \
+            --pattern 'territory-of-indonesia-simplified.zip' \
+            --pattern 'report.json' \
+            --dir download
+
+      - name: Assemble the Pages site
+        run: |
+          mkdir -p pages/v2
+          cp site/index.html pages/index.html
+          unzip -qo download/territory-of-indonesia-index.zip -d pages/v2
+          unzip -qo download/territory-of-indonesia-simplified.zip -d pages/v2
+          cp download/report.json pages/v2/report.json
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: pages
+
+      - id: deployment
+        uses: actions/deploy-pages@v5
