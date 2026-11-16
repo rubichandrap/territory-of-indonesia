@@ -60,6 +60,8 @@
   .stage { position: relative; height: 30rem; background: var(--sea); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
            box-shadow: var(--shadow); touch-action: manipulation; }
   svg { width: 100%; height: 100%; display: block; }
+  #map { cursor: grab; touch-action: none; user-select: none; }
+  #map.panning, #map.panning path { cursor: grabbing; }
   svg path { stroke: var(--stroke); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-linejoin: round; fill-rule: evenodd; }
   path.act { fill: hsl(var(--h) var(--s, var(--land-s)) var(--land-l)); cursor: pointer; transition: filter .12s; }
   path.act:hover, path.act.hl { filter: brightness(1.08) saturate(1.25); stroke: var(--ink); stroke-width: 1.5; }
@@ -78,6 +80,13 @@
         background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; font-size: .88rem; box-shadow: var(--shadow); }
   .up:hover { border-color: var(--accent); }
   .up:disabled { display: none; }
+  .zoom { position: absolute; right: .7rem; top: .7rem; z-index: 2; display: flex; flex-direction: column;
+          background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; box-shadow: var(--shadow); overflow: hidden; }
+  .zoom button { width: 2.4rem; height: 2.1rem; display: grid; place-items: center; border: 0; background: none; color: var(--ink);
+                 font-size: 1.15rem; line-height: 1; }
+  .zoom button + button { border-top: 1px solid var(--line); }
+  .zoom button:hover, .zoom button:focus-visible { background: var(--accent-soft); }
+  .zoom #zoom-fit { font-size: .64rem; letter-spacing: 0; }
   .tip { position: absolute; pointer-events: none; z-index: 3; background: var(--ink); color: var(--bg); padding: .3rem .6rem; border-radius: var(--radius-sm);
          font-size: .85rem; max-width: 16rem; box-shadow: var(--shadow); }
   .tip small { display: block; opacity: .7; }
@@ -154,7 +163,7 @@
   <div>
     <p class="eyebrow">Open data · OpenStreetMap</p>
     <h1>Territory of Indonesia</h1>
-    <p class="lead">Every administrative boundary from province down to village, as GeoJSON. Click the map to dig in: each click downloads only the next small file, straight from static hosting.</p>
+    <p class="lead">Every administrative boundary from province down to village, as GeoJSON. Click to dig in; drag to pan, scroll or pinch to zoom. Each click downloads only the next small file, straight from static hosting.</p>
   </div>
   <ul class="stats" id="stats" aria-label="What the dataset contains">
     <li class="stat dim"><b>38</b><span>provinces</span></li>
@@ -178,6 +187,11 @@
       <g id="under"></g><g id="ctx"></g><g id="act"></g><g id="foc"></g>
     </svg>
     <button class="up" id="up" type="button" title="Up one level (Esc)" disabled>↑ Up</button>
+    <div class="zoom" role="group" aria-label="Map view">
+      <button id="zoom-in" type="button" title="Zoom in" aria-label="Zoom in">+</button>
+      <button id="zoom-out" type="button" title="Zoom out" aria-label="Zoom out">−</button>
+      <button id="zoom-fit" type="button" title="Fit the current region" aria-label="Fit the current region">Fit</button>
+    </div>
     <button id="reset" type="button" hidden>Indonesia</button>
     <div class="busy" id="busy" role="status" hidden>Loading…</div>
     <div class="error" id="error" role="alert" hidden></div>
@@ -431,6 +445,7 @@ function render() {
   if (act.feats.length) box = union(act.feats);
   if (!box) box = union(L[0].feats);
   target = box;
+  userMoved = false;
   sizeStage(box);
   animateTo(fit(box));
 
@@ -469,6 +484,36 @@ function setView(v) {
   // units, which shrink as the viewBox widens.
   $("nodata").setAttribute("patternTransform", `rotate(45) scale(${v.w / (svg.clientWidth || 1)})`);
 }
+
+// ---- manual camera ----------------------------------------------------------
+const ZOOM_STEP = 1.6, ZOOM_MIN_SPAN = 0.01, ZOOM_MAX_SPAN = 140;
+let userMoved = false;   // resize should not throw away a view the user chose
+const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+function zoomAt(factor, clientX, clientY) {
+  if (!view) return;
+  const r = svg.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const w = clamp(view.w / factor, ZOOM_MIN_SPAN, ZOOM_MAX_SPAN);
+  if (w === view.w) return;
+  const k = w / view.w, h = view.h * k;
+  const fx = clamp((clientX - r.left) / r.width, 0, 1), fy = clamp((clientY - r.top) / r.height, 0, 1);
+  setView({ x: view.x + fx * view.w - fx * w, y: view.y + fy * view.h - fy * h, w, h });
+  userMoved = true;
+}
+function zoomCenter(factor) {
+  const r = svg.getBoundingClientRect();
+  zoomAt(factor, r.left + r.width / 2, r.top + r.height / 2);
+}
+function panPixels(dx, dy) {
+  if (!view) return;
+  const r = svg.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  setView({ x: view.x - (dx * view.w) / r.width, y: view.y - (dy * view.h) / r.height, w: view.w, h: view.h });
+  userMoved = true;
+}
+$("zoom-in").addEventListener("click", () => zoomCenter(ZOOM_STEP));
+$("zoom-out").addEventListener("click", () => zoomCenter(1 / ZOOM_STEP));
+$("zoom-fit").addEventListener("click", () => { if (target) { userMoved = false; animateTo(fit(target)); } });
 function animateTo(t) {
   cancelAnimationFrame(raf);
   if (!view || matchMedia("(prefers-reduced-motion: reduce)").matches) return setView(t);
@@ -481,7 +526,7 @@ function animateTo(t) {
   };
   raf = requestAnimationFrame(step);
 }
-addEventListener("resize", () => { if (target) { cancelAnimationFrame(raf); sizeStage(target); setView(fit(target)); } });
+addEventListener("resize", () => { if (target) { cancelAnimationFrame(raf); sizeStage(target); setView(userMoved ? view : fit(target)); } });
 
 // ---- panel ------------------------------------------------------------------
 function renderCrumbs() {
@@ -573,11 +618,68 @@ function pick(id) {
   const ids = S.path.map((x) => x.osm_id), inAct = S.layers[S.path.length].feats.includes(f);
   goIds(inAct ? ids.concat(id) : ids.slice(0, -1).concat(id));
 }
-svg.addEventListener("click", (ev) => { const id = target_id(ev); if (id) pick(id); });
+
+// Drag, pinch and wheel move the camera. A drag must not also count as a click
+// on the region it started on.
+const pointers = new Map();
+let dragFrom = null, pinchFrom = null, suppressClick = false;
+const capture = (ev) => { try { if (!svg.hasPointerCapture(ev.pointerId)) svg.setPointerCapture(ev.pointerId); } catch {} };
+svg.addEventListener("wheel", (ev) => {
+  if (!view) return;
+  ev.preventDefault();
+  zoomAt(Math.exp(-ev.deltaY * 0.0015), ev.clientX, ev.clientY);
+}, { passive: false });
+svg.addEventListener("pointerdown", (ev) => {
+  if (!view || (ev.pointerType === "mouse" && ev.button !== 0)) return;
+  pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  suppressClick = false;
+  tip.hidden = true;
+  svg.classList.add("panning");
+  if (pointers.size === 1) {
+    dragFrom = { x: ev.clientX, y: ev.clientY, moved: false };
+    pinchFrom = null;
+  } else if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    dragFrom = null;
+    pinchFrom = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  }
+});
+svg.addEventListener("pointermove", (ev) => {
+  if (!pointers.has(ev.pointerId)) return;
+  pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (pointers.size === 1 && dragFrom) {
+    const dx = ev.clientX - dragFrom.x, dy = ev.clientY - dragFrom.y;
+    if (!dx && !dy) return;
+    if (!dragFrom.moved && Math.hypot(dx, dy) > 3) { dragFrom.moved = true; suppressClick = true; capture(ev); }
+    panPixels(dx, dy);
+    dragFrom.x = ev.clientX; dragFrom.y = ev.clientY;
+  } else if (pointers.size === 2 && pinchFrom) {
+    const [a, b] = [...pointers.values()];
+    const dist = Math.hypot(a.x - b.x, a.y - b.y), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (pinchFrom.dist > 0) zoomAt(dist / pinchFrom.dist, mid.x, mid.y);
+    panPixels(mid.x - pinchFrom.mid.x, mid.y - pinchFrom.mid.y);
+    pinchFrom = { dist, mid };
+    suppressClick = true;
+    capture(ev);
+  }
+});
+function endPointer(ev) {
+  pointers.delete(ev.pointerId);
+  if (!pointers.size) { dragFrom = null; pinchFrom = null; svg.classList.remove("panning"); }
+  else if (pointers.size === 1) {
+    const p = [...pointers.values()][0];
+    dragFrom = { x: p.x, y: p.y, moved: true };
+    pinchFrom = null;
+  }
+}
+svg.addEventListener("pointerup", endPointer);
+svg.addEventListener("pointercancel", endPointer);
+
+svg.addEventListener("click", (ev) => { if (suppressClick) { suppressClick = false; return; } const id = target_id(ev); if (id) pick(id); });
 svg.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { const id = target_id(ev); if (id) { ev.preventDefault(); pick(id); } } });
-svg.addEventListener("pointerover", (ev) => { const id = target_id(ev); if (id) { hl(id, true); showTip(ev, id); } });
-svg.addEventListener("pointermove", (ev) => { if (!tip.hidden) placeTip(ev); });
-svg.addEventListener("pointerout", (ev) => { const id = target_id(ev); if (id) { hl(id, false); tip.hidden = true; } });
+svg.addEventListener("pointerover", (ev) => { if (pointers.size) return; const id = target_id(ev); if (id) { hl(id, true); showTip(ev, id); } });
+svg.addEventListener("pointermove", (ev) => { if (pointers.size) { tip.hidden = true; return; } if (!tip.hidden) placeTip(ev); });
+svg.addEventListener("pointerout", (ev) => { if (pointers.size) return; const id = target_id(ev); if (id) { hl(id, false); tip.hidden = true; } });
 function showTip(ev, id) {
   const e = byId.get(id).entry;
   tip.textContent = "";
