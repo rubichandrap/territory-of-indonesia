@@ -9,103 +9,159 @@
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #fff; --fg: #1b1f23; --muted: #5b6672; --line: #8885; --card: #f4f6f8;
-    --sea: #d9e8f4; --accent: #0b63ce; --stroke: #fff; --fill-l: 68%; --fill-s: 52%;
+    /* ink and paper */
+    --bg: #faf8f4; --surface: #fff; --ink: #1d1b19; --muted: #6c675f; --line: #e4dfd6; --line-strong: #cfc8bb;
+    /* the map */
+    --sea: #e6eef2; --stroke: #faf8f4; --land-s: 42%; --land-l: 70%; --ctx-l: 82%;
+    /* one accent, taken from the flag, reserved for selection and focus */
+    --accent: #b3261e; --accent-soft: #b3261e1a; --link: #0b5a8c;
+    --radius: 12px; --radius-sm: 8px;
+    --shadow: 0 1px 2px #2a24180d, 0 6px 20px -8px #2a241826;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9aa7b4; --card: #161b22;
-            --sea: #0e2233; --accent: #58a6ff; --stroke: #0d1117; --fill-l: 40%; --fill-s: 42%; }
+    :root {
+      --bg: #12110f; --surface: #1b1a17; --ink: #ece8e1; --muted: #a39d92; --line: #2d2a25; --line-strong: #403b34;
+      --sea: #0f1a22; --stroke: #12110f; --land-s: 30%; --land-l: 40%; --ctx-l: 26%;
+      --accent: #ff7b6e; --accent-soft: #ff7b6e22; --link: #7cc0ee;
+      --shadow: 0 1px 2px #0006, 0 10px 28px -10px #000a;
+    }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, sans-serif; }
-  a { color: var(--accent); }
-  .wrap { max-width: 78rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
-  .prose { max-width: 46rem; }
-  h1 { margin: 0 0 .25rem; }
-  h2 { font-size: 1.15rem; margin-top: 2rem; }
-  code, pre { font: 14px/1.5 ui-monospace, monospace; background: var(--card); border-radius: 4px; }
-  code { padding: .1em .3em; }
-  pre { padding: .75rem 1rem; overflow-x: auto; }
-  .lead { color: var(--muted); margin: 0 0 1rem; max-width: 46rem; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+  a { color: var(--link); text-underline-offset: .18em; text-decoration-thickness: 1px; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   button, input { font: inherit; color: inherit; }
   button { cursor: pointer; }
+  .wrap { max-width: 80rem; margin: 0 auto; padding: 2rem 1.25rem 3.5rem; }
 
-  .explorer { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1rem; align-items: start; }
-  .stage { position: relative; height: min(72vh, 38rem); background: var(--sea); border: 1px solid var(--line);
-           border-radius: 10px; overflow: hidden; touch-action: manipulation; }
+  /* ---- masthead ---- */
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.25rem 2.5rem; align-items: end; margin-bottom: 1.5rem; }
+  .eyebrow { margin: 0 0 .5rem; font-size: .75rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-size: clamp(2rem, 4.6vw, 3.1rem); line-height: 1.04; letter-spacing: -.025em; font-weight: 750; }
+  .lead { margin: .75rem 0 0; max-width: 38rem; color: var(--muted); font-size: 1.05rem; }
+  .stats { display: flex; gap: 1.75rem; margin: 0; padding: 0; list-style: none; }
+  .stat { display: flex; flex-direction: column; }
+  .stat b { font-size: 1.7rem; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: .78rem; color: var(--muted); }
+  .stat.dim b { color: var(--line-strong); }
+
+  /* ---- explorer ---- */
+  .trail { display: flex; align-items: center; min-height: 2.25rem; margin-bottom: .6rem; }
+  .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .5rem; font-size: .92rem; color: var(--muted); }
+  .crumbs button { background: none; border: 0; padding: .1rem 0; color: var(--link); text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: 1px; }
+  .crumbs button:hover { text-decoration-thickness: 2px; }
+  .crumbs b { color: var(--ink); font-weight: 650; }
+  .crumbs i { font-style: normal; color: var(--line-strong); }
+  .crumbs .hint { color: var(--muted); }
+  .explorer { display: grid; grid-template-columns: minmax(0, 1fr) 21.5rem; gap: 1rem; align-items: stretch; }
+  .stage { position: relative; height: 30rem; background: var(--sea); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+           box-shadow: var(--shadow); touch-action: manipulation; }
   svg { width: 100%; height: 100%; display: block; }
   svg path { stroke: var(--stroke); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-linejoin: round; fill-rule: evenodd; }
-  path.act { fill: hsl(var(--h) var(--fill-s) var(--fill-l)); cursor: pointer; transition: filter .12s; }
-  path.act:hover, path.act.hl { filter: brightness(1.14) saturate(1.2); stroke: var(--fg); stroke-width: 1.6; }
+  path.act { fill: hsl(var(--h) var(--s, var(--land-s)) var(--land-l)); cursor: pointer; transition: filter .12s; }
+  path.act:hover, path.act.hl { filter: brightness(1.08) saturate(1.25); stroke: var(--ink); stroke-width: 1.5; }
   path.act:focus-visible { outline: none; stroke: var(--accent); stroke-width: 3; }
-  path.ctx { fill: hsl(var(--h) 12% var(--fill-l)); opacity: .45; cursor: pointer; }
-  path.ctx:hover { opacity: .75; }
-  path.foc { fill: none; stroke: var(--accent); stroke-width: 2.5; pointer-events: none; }
-  path.foc.leaf { fill: hsl(var(--h) var(--fill-s) var(--fill-l)); }
+  path.ctx { fill: hsl(var(--h) 10% var(--ctx-l)); opacity: .7; cursor: pointer; }
+  path.ctx:hover { opacity: 1; }
+  path.foc { fill: none; stroke: var(--accent); stroke-width: 2.25; pointer-events: none; }
+  path.foc.leaf { fill: hsl(var(--h) var(--s, var(--land-s)) var(--land-l)); }
 
-  .tip { position: absolute; pointer-events: none; z-index: 3; background: var(--fg); color: var(--bg); padding: .25rem .55rem;
-         border-radius: 6px; font-size: .85rem; max-width: 16rem; box-shadow: 0 2px 8px #0004; }
-  .tip small { display: block; opacity: .75; }
-  .busy, .error { position: absolute; z-index: 2; left: 50%; top: .75rem; transform: translateX(-50%); background: var(--card);
-                  border: 1px solid var(--line); border-radius: 999px; padding: .25rem .9rem; font-size: .9rem; }
-  .error { border-radius: 8px; color: #c62828; text-align: center; }
-  .credit { position: absolute; right: .5rem; bottom: .35rem; font-size: .72rem; color: var(--muted); background: #fff6; padding: 0 .3rem; border-radius: 3px; }
-  .bar { position: absolute; left: .6rem; top: .6rem; z-index: 2; display: flex; gap: .4rem; }
-  .bar button { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .3rem .7rem; }
-  .bar button:disabled { opacity: .45; cursor: default; }
-  .bar button:hover:not(:disabled) { border-color: var(--accent); }
+  .up { position: absolute; left: .7rem; top: .7rem; z-index: 2; display: inline-flex; align-items: center; gap: .35rem; height: 2.1rem; padding: 0 .8rem;
+        background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; font-size: .88rem; box-shadow: var(--shadow); }
+  .up:hover { border-color: var(--accent); }
+  .up:disabled { display: none; }
+  .tip { position: absolute; pointer-events: none; z-index: 3; background: var(--ink); color: var(--bg); padding: .3rem .6rem; border-radius: var(--radius-sm);
+         font-size: .85rem; max-width: 16rem; box-shadow: var(--shadow); }
+  .tip small { display: block; opacity: .7; }
+  .busy, .error { position: absolute; z-index: 2; left: 50%; bottom: .9rem; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--line-strong);
+                  border-radius: 999px; padding: .3rem 1rem; font-size: .88rem; box-shadow: var(--shadow); }
+  .error { border-radius: var(--radius-sm); color: var(--accent); text-align: center; max-width: 90%; }
+  .credit { position: absolute; right: .6rem; bottom: .45rem; font-size: .7rem; color: var(--muted); }
 
-  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .9rem; display: flex; flex-direction: column;
-           gap: .75rem; max-height: min(72vh, 38rem); overflow: auto; }
-  .crumbs { display: flex; flex-wrap: wrap; gap: .2rem .35rem; font-size: .88rem; color: var(--muted); }
-  .crumbs button { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; }
-  .crumbs b { color: var(--fg); font-weight: 600; }
-  .search input, .filter input { width: 100%; padding: .4rem .6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
-  .hits { list-style: none; margin: .3rem 0 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
-  .hits li button { width: 100%; text-align: left; background: none; border: 0; padding: .35rem .6rem; }
-  .hits li button:hover, .hits li button:focus-visible { background: var(--card); outline: none; }
+  .panel { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); min-height: 0; }
+  .scroll { position: absolute; inset: 0; overflow: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+  .field { width: 100%; height: 2.4rem; padding: 0 .75rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--bg); }
+  .field::placeholder { color: var(--muted); }
+  .field:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .hits { list-style: none; margin: .35rem 0 0; padding: .25rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow); }
+  .hits li button { width: 100%; text-align: left; background: none; border: 0; padding: .4rem .55rem; border-radius: 6px; }
+  .hits li button:hover, .hits li button:focus-visible { background: var(--accent-soft); outline: none; }
   .hits small, .list small { color: var(--muted); }
-  .info h2 { margin: 0; font-size: 1.25rem; }
-  .info .sub { margin: 0 0 .5rem; color: var(--muted); }
-  .info dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .15rem .8rem; font-size: .9rem; }
+
+  .info { padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
+  .info h2 { margin: 0; font-size: 1.45rem; line-height: 1.15; letter-spacing: -.015em; }
+  .tag { display: inline-block; margin-top: .4rem; padding: .05rem .55rem; font-size: .76rem; font-weight: 600; letter-spacing: .02em; text-transform: capitalize;
+         color: var(--accent); background: var(--accent-soft); border-radius: 999px; }
+  .info .note { margin: .6rem 0 0; }
+  .info dl { margin: .9rem 0 0; display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; font-size: .88rem; }
   .info dt { color: var(--muted); }
   .info dd { margin: 0; overflow-wrap: anywhere; }
-  .actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
-  .actions a, .actions button { font-size: .85rem; padding: .25rem .65rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
-                                text-decoration: none; color: var(--accent); }
-  .list h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: .6rem 0 .2rem; }
+  .actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1rem; }
+  .actions a, .actions button { display: inline-flex; align-items: center; height: 2rem; padding: 0 .75rem; font-size: .84rem; border: 1px solid var(--line-strong);
+                                border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); text-decoration: none; }
+  .actions a:hover, .actions button:hover { border-color: var(--accent); }
+
+  .listhead { display: flex; flex-direction: column; gap: .5rem; }
+  .listhead h3 { margin: 0; min-width: 0; font-size: .74rem; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .listhead .field { height: 2rem; font-size: .86rem; }
+  .list h3.group { margin: .9rem 0 .25rem; font-size: .74rem; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
   .list ul { list-style: none; margin: 0; padding: 0; }
-  .list li button { width: 100%; display: flex; align-items: center; gap: .5rem; text-align: left; background: none; border: 0;
-                    padding: .25rem .3rem; border-radius: 6px; }
-  .list li button:hover, .list li button.hl { background: var(--bg); }
-  .swatch { flex: none; width: .8rem; height: .8rem; border-radius: 3px; background: hsl(var(--h) var(--fill-s) var(--fill-l)); border: 1px solid var(--line); }
+  .list li button { width: 100%; display: flex; align-items: center; gap: .6rem; text-align: left; background: none; border: 0; padding: .32rem .4rem; border-radius: 6px; }
+  .list li button:hover, .list li button.hl { background: var(--accent-soft); }
+  .swatch { flex: none; width: .75rem; height: .75rem; border-radius: 50%; background: hsl(var(--h) var(--s, var(--land-s)) var(--land-l)); box-shadow: inset 0 0 0 1px #0002; }
   .note { color: var(--muted); font-size: .9rem; margin: 0; }
-  footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; }
+  .list .note { margin: .7rem 0 .3rem; }
+
+  /* ---- reference ---- */
+  .prose { max-width: 46rem; margin-top: 3rem; }
+  h2.section { font-size: 1.2rem; margin: 2.2rem 0 .6rem; letter-spacing: -.01em; }
+  code, pre { font: 13.5px/1.55 ui-monospace, "SF Mono", Menlo, monospace; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+  code { padding: .08em .35em; }
+  pre { padding: .8rem 1rem; overflow-x: auto; }
+  .prose li { margin: .4rem 0; }
+  footer { margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .88rem; }
 
   @media (max-width: 860px) {
+    .wrap { padding: 1.25rem .9rem 3rem; }
+    .hero { grid-template-columns: 1fr; }
+    .stats { gap: 1.25rem; flex-wrap: wrap; }
     .explorer { grid-template-columns: 1fr; }
-    .stage { height: 52vh; }
-    .panel { max-height: none; }
+    .panel { position: static; }
+    .scroll { position: static; overflow: visible; }
+    .trail { overflow-x: auto; }
+    .crumbs { flex-wrap: nowrap; white-space: nowrap; }
   }
+  @media (prefers-reduced-motion: reduce) { path.act { transition: none; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-<h1>Territory of Indonesia</h1>
-<p class="lead">Administrative boundaries of Indonesia from provinces down to villages, built from
-<a href="https://www.openstreetmap.org/">OpenStreetMap</a>. Click the map to dig in. Everything below is the
-real dataset, fetched file by file, with no server behind it.</p>
+<header class="hero">
+  <div>
+    <p class="eyebrow">Open data · OpenStreetMap</p>
+    <h1>Territory of Indonesia</h1>
+    <p class="lead">Every administrative boundary from province down to village, as GeoJSON. Click the map to dig in: each click downloads only the next small file, straight from static hosting.</p>
+  </div>
+  <ul class="stats" id="stats" aria-label="What the dataset contains">
+    <li class="stat dim"><b>38</b><span>provinces</span></li>
+    <li class="stat dim"><b>514</b><span>regencies</span></li>
+    <li class="stat dim"><b>·</b><span>districts</span></li>
+    <li class="stat dim"><b>·</b><span>villages</span></li>
+  </ul>
+</header>
 <noscript><p>The explorer needs JavaScript. The data itself is linked further down.</p></noscript>
 
+<div class="trail"><nav class="crumbs" id="crumbs" aria-label="Where you are"></nav></div>
 <div class="explorer">
   <div class="stage" id="stage">
     <svg id="map" role="group" aria-label="Map of Indonesia's administrative regions. Use the list beside it for keyboard access.">
       <g id="ctx"></g><g id="act"></g><g id="foc"></g>
     </svg>
-    <div class="bar">
-      <button id="up" type="button" title="Up one level (Esc)" disabled>↑ Up</button>
-      <button id="reset" type="button" title="Back to all of Indonesia" disabled>Indonesia</button>
-    </div>
+    <button class="up" id="up" type="button" title="Up one level (Esc)" disabled>↑ Up</button>
+    <button id="reset" type="button" hidden>Indonesia</button>
     <div class="busy" id="busy" role="status" hidden>Loading…</div>
     <div class="error" id="error" role="alert" hidden></div>
     <div class="tip" id="tip" role="tooltip" hidden></div>
@@ -113,21 +169,22 @@ real dataset, fetched file by file, with no server behind it.</p>
   </div>
 
   <aside class="panel" aria-label="Details">
-    <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
-    <div class="search">
-      <input id="q" type="search" placeholder="Search provinces and regencies" autocomplete="off" aria-label="Search provinces and regencies">
-      <ul class="hits" id="hits" hidden></ul>
-    </div>
-    <div class="info" id="info"></div>
-    <div class="list">
-      <div class="filter"><input id="filter" type="search" placeholder="Filter this list" autocomplete="off" aria-label="Filter this list"></div>
-      <div id="list"></div>
+    <div class="scroll">
+      <div class="search">
+        <input class="field" id="q" type="search" placeholder="Search provinces and regencies" autocomplete="off" aria-label="Search provinces and regencies">
+        <ul class="hits" id="hits" hidden></ul>
+      </div>
+      <section class="info" id="info"></section>
+      <section class="list">
+        <div class="listhead"><h3 id="listtitle">Regions</h3><input class="field" id="filter" type="search" placeholder="Filter" autocomplete="off" aria-label="Filter this list"></div>
+        <div id="list"></div>
+      </section>
     </div>
   </aside>
 </div>
 
 <div class="prose">
-<h2>Use the data</h2>
+<h2 class="section">Use the data</h2>
 <ul>
   <li><a href="v2/index/provinces.json">v2/index/provinces.json</a>: the provinces, without geometry. Each entry's <code>children</code> says which files exist below it.</li>
   <li><a href="v2/simplified/provinces.geojson">v2/simplified/provinces.geojson</a>: the provinces with simplified geometry, for drawing maps. This is the file the map above starts with.</li>
@@ -135,7 +192,7 @@ real dataset, fetched file by file, with no server behind it.</p>
   <li><a href="v2/report.json">v2/report.json</a>: what looked wrong in OpenStreetMap while building it.</li>
 </ul>
 
-<h2>Layout</h2>
+<h2 class="section">Layout</h2>
 <pre>v2/index/provinces.json                    geometry-free entries
 v2/index/regencies/&lt;province id&gt;.json
 v2/index/districts/&lt;regency id&gt;.json
@@ -144,17 +201,18 @@ v2/simplified/provinces.geojson            the same files with simplified geomet
 v2/simplified/regencies/&lt;province id&gt;.geojson
 ...</pre>
 
-<h2>Example</h2>
+<h2 class="section">Example</h2>
 <pre>const base = "https://rubichandrap.github.io/territory-of-indonesia/v2";
 const provinces = await (await fetch(`${base}/index/provinces.json`)).json();
 const jabar = provinces.find((p) =&gt; p.name === "Jawa Barat");
 const regencies = await (await fetch(`${base}/index/regencies/${jabar.osm_id}.json`)).json();</pre>
 
-<h2>Good to know</h2>
+<h2 class="section">Good to know</h2>
 <ul>
   <li>This is always the <strong>newest</strong> release, so a file can change under the same URL. To pin a version, download a zip from the
     <a href="https://github.com/rubichandrap/territory-of-indonesia/releases">Releases page</a>, which also has the full-resolution tier.</li>
   <li>The <code>v2</code> in the path is the format version, not a date. A future incompatible format would get a new path.</li>
+  <li>Provinces are drawn as land: OpenStreetMap's own province polygons include territorial waters, so each province here is the union of its regencies.</li>
   <li>Coverage below the regency level is partial: OpenStreetMap has not been mapped that far everywhere. A region with no list under it simply has nothing finer yet.
     <a href="v2/report.json">report.json</a> and the
     <a href="https://github.com/rubichandrap/territory-of-indonesia#readme">README</a> say exactly what is and is not there.</li>
@@ -215,6 +273,24 @@ function toPath(geom) {
   return d;
 }
 
+// A muted, related palette. Neighbours get different colours: each region takes
+// the first colour no overlapping, already coloured region uses (largest first).
+const PALETTE = [[12, 44], [38, 52], [88, 34], [160, 34], [200, 40], [252, 30], [320, 32], [24, 20]];
+function colorize(feats) {
+  const overlap = (a, b) => a[0] <= b[2] + 1e-4 && b[0] <= a[2] + 1e-4 && a[1] <= b[3] + 1e-4 && b[1] <= a[3] + 1e-4;
+  const order = feats.slice().sort((a, b) => (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]) - (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]));
+  const used = new Array(PALETTE.length).fill(0);
+  order.forEach((f, i) => {
+    const near = new Map();
+    for (const g of order.slice(0, i)) if (g.ci !== undefined && overlap(f.box, g.box)) near.set(g.ci, (near.get(g.ci) || 0) + 1);
+    let pick = -1;
+    for (let k = 0; k < PALETTE.length; k++) { const c = (k + i) % PALETTE.length; if (!near.has(c)) { pick = c; break; } }
+    if (pick < 0) pick = [...PALETTE.keys()].sort((a, b) => (near.get(a) || 0) - (near.get(b) || 0) || used[a] - used[b])[0];
+    f.ci = pick; used[pick]++;
+    [f.hue, f.sat] = PALETTE[pick];
+  });
+}
+
 const layers = new Map();
 // The regions directly inside `focus` (or the provinces when focus is null),
 // with their drawable paths. One small file per group, fetched on demand.
@@ -238,7 +314,7 @@ function loadLayer(focus) {
         }
       }));
       feats.sort((a, b) => a.entry.admin_level - b.entry.admin_level || a.entry.name.localeCompare(b.entry.name, "id"));
-      feats.forEach((f, i) => { f.hue = Math.round((i * 137.508) % 360); });
+      colorize(feats);
       return { focus, feats, files };
     })();
     p.catch(() => layers.delete(key));
@@ -288,6 +364,7 @@ function drawLayer(g, feats, cls, tabbable) {
     p.setAttribute("d", f.d);
     p.setAttribute("class", cls);
     p.style.setProperty("--h", f.hue);
+    p.style.setProperty("--s", f.sat + "%");
     p.dataset.id = f.entry.osm_id;
     p.setAttribute("role", "button");
     p.setAttribute("tabindex", tabbable ? "0" : "-1");
@@ -313,6 +390,7 @@ function render() {
       p.setAttribute("d", ff.d);
       p.setAttribute("class", "foc" + (act.feats.length ? "" : " leaf"));
       p.style.setProperty("--h", ff.hue);
+      p.style.setProperty("--s", ff.sat + "%");
       gFoc.appendChild(p);
       box = ff.box;
     }
@@ -333,13 +411,13 @@ function render() {
   renderCrumbs(); renderInfo(); renderList();
 }
 
-// On a narrow screen the map sits above the panel, so let its height follow the
-// shape of what is shown: short for wide Indonesia, taller for a tall region.
+// Let the map's height follow the shape of what is shown: short for wide
+// Indonesia, taller for a tall region. On a desktop the panel stretches to match.
 const narrow = matchMedia("(max-width: 860px)");
 function sizeStage(box) {
-  if (!narrow.matches) { stage.style.height = ""; return; }
   const ratio = ((box[3] - box[1]) || 0.05) / ((box[2] - box[0]) || 0.05);
-  stage.style.height = Math.round(Math.min(innerHeight * 0.7, Math.max(230, stage.clientWidth * ratio * 1.25))) + "px";
+  const lo = narrow.matches ? 230 : 440, hi = narrow.matches ? innerHeight * 0.7 : Math.min(innerHeight * 0.8, 660);
+  stage.style.height = Math.round(Math.min(hi, Math.max(lo, stage.clientWidth * ratio * 1.2))) + "px";
 }
 
 // ---- camera -----------------------------------------------------------------
@@ -376,7 +454,8 @@ function renderCrumbs() {
   nav_.textContent = "";
   const crumb = (text, ids, last) => last ? h("b", { text }) : h("button", { type: "button", text, onclick: () => goIds(ids) });
   nav_.append(crumb("Indonesia", [], path.length === 0));
-  path.forEach((e, i) => nav_.append("›", crumb(e.name, path.slice(0, i + 1).map((x) => x.osm_id), i === path.length - 1)));
+  if (!path.length) nav_.append(h("span", { class: "hint", text: "· click a province to zoom in" }));
+  path.forEach((e, i) => nav_.append(h("i", { text: "›", "aria-hidden": "true" }), crumb(e.name, path.slice(0, i + 1).map((x) => x.osm_id), i === path.length - 1)));
 }
 
 function count(n) { return Number(n).toLocaleString("en"); }
@@ -385,10 +464,9 @@ function renderInfo() {
   const { path, layers: L } = S, n = path.length, info = $("info");
   info.textContent = "";
   if (!n) {
-    info.append(h("h2", { text: "Indonesia" }),
-      h("p", { class: "sub", text: manifest && manifest.source && manifest.source.osm_timestamp ? `OpenStreetMap data as of ${manifest.source.osm_timestamp.slice(0, 10)}` : "" }),
-      h("p", { class: "note", text: "Click a province, pick one from the list, or search. Each click loads only the next level." }));
-    if (manifest) info.append(h("dl", {}, ...["provinces", "regencies", "districts", "villages"].flatMap((k) => [h("dt", { text: LEVELS[k] }), h("dd", { text: count(manifest.counts[k]) })])));
+    const when = manifest && manifest.source && manifest.source.osm_timestamp ? manifest.source.osm_timestamp.slice(0, 10) : "";
+    info.append(h("h2", { text: "Indonesia" }), h("span", { class: "tag", text: when ? `OpenStreetMap, ${when}` : "all of Indonesia" }),
+      h("p", { class: "note", text: "Pick a province on the map or from the list, or search for one. Each click loads only the next level." }));
     return;
   }
   const e = path[n - 1], kids = e.children || {}, rows = [];
@@ -409,7 +487,7 @@ function renderInfo() {
     actions.append(h("a", { href: url, text: "GeoJSON of this level" }));
   }
   actions.append(h("button", { type: "button", text: "Copy link to this view", onclick: (ev) => copy(location.href, ev.target) }));
-  info.append(h("h2", { text: e.name }), h("p", { class: "sub", text: e.kind && e.kind !== e.level ? `${e.kind} · ${e.level}` : e.level }),
+  info.append(h("h2", { text: e.name }), h("span", { class: "tag", text: e.kind && e.kind !== e.level ? `${e.kind} · ${e.level}` : e.level }),
     h("dl", {}, rows), actions);
 }
 
@@ -422,16 +500,18 @@ function renderList() {
   const { path, layers: L } = S, n = path.length, list = $("list"), q = $("filter").value.trim().toLowerCase();
   list.textContent = "";
   let feats = L[n].feats, lateral = false;
+  const heading = n ? (L[n].feats.length ? "Inside " + path[n - 1].name : "Same level") : "Provinces";
   if (!feats.length && n) { feats = L[n - 1].feats; lateral = true; }
   if (!feats.length) return;
+  $("listtitle").textContent = `${heading} · ${feats.length}`;
   const shown = feats.filter((f) => !q || (f.entry.name + " " + (f.entry.official_name || "")).toLowerCase().includes(q));
   if (!L[n].feats.length) list.append(h("p", { class: "note", text: "OpenStreetMap has no finer boundaries mapped inside this region yet. Other regions at the same level:" }));
   const groups = new Map();
   for (const f of shown) { const g = f.entry.level; (groups.get(g) || groups.set(g, []).get(g)).push(f); }
   for (const [g, fs] of groups) {
-    list.append(h("h3", { text: `${KIND[g]}s (${fs.length})` }),
-      h("ul", {}, fs.map((f) => h("li", {}, h("button", {
-        type: "button", "data-id": f.entry.osm_id, style: `--h:${f.hue}`,
+    if (groups.size > 1) list.append(h("h3", { class: "group", text: `${KIND[g]}s (${fs.length})` }));
+    list.append(h("ul", {}, fs.map((f) => h("li", {}, h("button", {
+        type: "button", "data-id": f.entry.osm_id, style: `--h:${f.hue};--s:${f.sat}%`,
         onclick: () => goIds(lateral ? path.slice(0, -1).map((x) => x.osm_id).concat(f.entry.osm_id) : path.map((x) => x.osm_id).concat(f.entry.osm_id)),
         onmouseenter: () => hl(f.entry.osm_id, true), onmouseleave: () => hl(f.entry.osm_id, false), onfocus: () => hl(f.entry.osm_id, true), onblur: () => hl(f.entry.osm_id, false),
       }, h("span", { class: "swatch" }), h("span", {}, f.entry.name, f.entry.kind ? h("small", { text: "  " + f.entry.kind }) : null))))));
@@ -519,7 +599,12 @@ function fail(err) {
   if (err) errEl.append("Could not load the map data (" + err.message + "). ", h("button", { type: "button", text: "Try again", onclick: route }));
 }
 
-getJSON("manifest.json").then((m) => { manifest = m; if (S) renderInfo(); }).catch(() => {});
+function renderStats() {
+  const ul = $("stats");
+  ul.textContent = "";
+  for (const k of ["provinces", "regencies", "districts", "villages"]) ul.append(h("li", { class: "stat" }, h("b", { text: count(manifest.counts[k]) }), h("span", { text: k })));
+}
+getJSON("manifest.json").then((m) => { manifest = m; renderStats(); if (S) renderInfo(); }).catch(() => {});
 if (!location.hash) history.replaceState(null, "", "#/");
 route();
 })();
