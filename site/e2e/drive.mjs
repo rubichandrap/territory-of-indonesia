@@ -69,6 +69,31 @@ await waitFor(`document.querySelectorAll('#act path').length > 0`); await sleep(
 let s = await state();
 check(`draws all ${provinces.length} provinces`, s.act === provinces.length, s);
 
+// 1b. Camera controls: buttons, drag, wheel, and Fit.
+const viewBox = () => ev(`document.getElementById('map').getAttribute('viewBox')`);
+const span = (vb) => Number(vb.split(" ")[2]);
+const rootVb = await viewBox();
+await ev(`document.getElementById('zoom-in').click()`); await sleep(300);
+const zoomedVb = await viewBox();
+check("the zoom-in button narrows the view", span(zoomedVb) < span(rootVb), { rootVb, zoomedVb });
+await ev(`document.getElementById('zoom-fit').click()`); await sleep(800);
+check("Fit restores the fitted view", (await viewBox()) === rootVb, { rootVb, now: await viewBox() });
+const mapPt = await ev(`(() => { const r = document.getElementById('map').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+const beforeDrag = await viewBox();
+await send("Input.dispatchMouseEvent", { type: "mousePressed", x: mapPt.x, y: mapPt.y, button: "left", clickCount: 1 });
+await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: mapPt.x + 50, y: mapPt.y + 25, button: "left" });
+await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: mapPt.x + 50, y: mapPt.y + 25, button: "left", clickCount: 1 });
+await sleep(500);
+const afterDrag = await viewBox(); s = await state();
+check("a drag pans without opening a region", afterDrag !== beforeDrag && s.hash === "#/", { beforeDrag, afterDrag, hash: s.hash });
+await ev(`document.getElementById('zoom-fit').click()`); await sleep(800);
+check("Fit restores the view after a pan", (await viewBox()) === rootVb, { rootVb, now: await viewBox() });
+await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: mapPt.x, y: mapPt.y, deltaX: 0, deltaY: -120 });
+await sleep(300);
+check("the wheel zooms in", span(await viewBox()) < span(rootVb), { rootVb, now: await viewBox() });
+await ev(`document.getElementById('zoom-fit').click()`); await sleep(800);
+check("Fit is back after the wheel", (await viewBox()) === rootVb, { rootVb, now: await viewBox() });
+
 // 2. Real mouse input: hover, wait (a re-append loop would show up as flicker), then click.
 const pt = await ev(`(() => { const p=[...document.querySelectorAll('#act path')].find(x=>x.getAttribute('aria-label').startsWith('Jawa Barat')); const r=p.getBoundingClientRect();
   for (let i=1;i<24;i++) for (let j=1;j<24;j++) { const x=r.left+r.width*i/24, y=r.top+r.height*j/24; if (document.elementFromPoint(x,y)===p) return {x,y}; } return null; })()`);
