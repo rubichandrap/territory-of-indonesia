@@ -95,6 +95,8 @@ type Options struct {
 	Tolerance map[model.Level]float64
 	// Decimals is the coordinate precision of the simplified tier.
 	Decimals int
+	// MinIsland overrides DefaultMinIsland.
+	MinIsland map[model.Level]float64
 	// Source describes where the data came from; copied into the manifest.
 	Source Source
 	// Tool is the version string recorded in the manifest.
@@ -106,12 +108,19 @@ type Options struct {
 // roughly 55 m.
 var (
 	DefaultTolerance = map[model.Level]float64{
-		model.Province: 0.004,
+		model.Province: 0.008,
 		model.Regency:  0.002,
 		model.District: 0.001,
 		model.Village:  0.0005,
 	}
 	DefaultDecimals = 5
+
+	// DefaultMinIsland is the smallest polygon, in square degrees, the
+	// simplified tier keeps for a level. A province is drawn at country scale,
+	// where an island under about 5 km2 is far smaller than a pixel, and there
+	// are thousands of them. Regencies, districts and villages keep every
+	// polygon, and so does the full tier.
+	DefaultMinIsland = map[model.Level]float64{model.Province: 0.0004}
 )
 
 // Extract is one input file of a build.
@@ -164,6 +173,9 @@ func Write(t *hierarchy.Tree, opt Options) (*Manifest, error) {
 	}
 	if opt.Decimals == 0 {
 		opt.Decimals = DefaultDecimals
+	}
+	if opt.MinIsland == nil {
+		opt.MinIsland = DefaultMinIsland
 	}
 	for _, name := range []string{TierIndex, TierSimplified, TierFull, "manifest.json"} {
 		if err := os.RemoveAll(filepath.Join(opt.Dir, name)); err != nil {
@@ -233,7 +245,7 @@ func Write(t *hierarchy.Tree, opt Options) (*Manifest, error) {
 				Files: int(stats[0].files.Load()), Bytes: stats[0].bytes.Load(),
 			},
 			TierSimplified: {
-				Dir: TierSimplified, Description: "GeoJSON with Douglas-Peucker simplified geometry, for drawing maps. Shared borders are not guaranteed to match exactly.",
+				Dir: TierSimplified, Description: "GeoJSON with Douglas-Peucker simplified geometry, for drawing maps. Shared borders are not guaranteed to match exactly, and province outlines leave out islands smaller than about 5 km2.",
 				Decimals: opt.Decimals, Tolerance: toleranceNames(opt.Tolerance),
 				Files: int(stats[1].files.Load()), Bytes: stats[1].bytes.Load(),
 			},
@@ -372,7 +384,8 @@ func simplified(r *model.Region, opt Options) orb.Geometry {
 	if !ok {
 		tol = DefaultTolerance[r.Level]
 	}
-	if g := geom.Round(geom.Simplify(r.Geometry, tol), opt.Decimals); geom.Validate(g) == "" {
+	src := geom.DropSmall(r.Geometry, opt.MinIsland[r.Level])
+	if g := geom.Round(geom.Simplify(src, tol), opt.Decimals); geom.Validate(g) == "" {
 		return g
 	}
 	if g := geom.Round(r.Geometry, opt.Decimals); geom.Validate(g) == "" {

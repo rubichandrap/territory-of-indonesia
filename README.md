@@ -40,7 +40,7 @@ as one zip per tier, plus `manifest.json` and `report.json`:
 |---|--:|--:|---|
 | `territory-of-indonesia-index.zip` | 0.7 MB | 2.4 MB | dropdowns, search, map markers: properties, bounding box and a label point for every region, **no geometry** |
 | `territory-of-indonesia-simplified.zip` | 4 MB | 15 MB | drawing maps: GeoJSON with simplified geometry |
-| `territory-of-indonesia-full.zip` | 57 MB | 186 MB | analysis: GeoJSON with the geometry exactly as OpenStreetMap has it |
+| `territory-of-indonesia-full.zip` | 72 MB | 236 MB | analysis: GeoJSON with the geometry exactly as OpenStreetMap has it |
 
 GitHub Releases cannot serve single files, so for a copy you can fetch file by
 file, use the hosted one below, or unzip a tier and host it yourself.
@@ -135,7 +135,13 @@ a desa), so it is empty where neither says anything.
   under a regency because their kecamatan is not mapped; their file is
   `index/villages/<regency id>.json`. Compare `admin_level` with the parent's
   to tell.
-- **`simplified` is for drawing.** It keeps 8% of the points; the median area
+- **Provinces are land, not their legal area.** OpenStreetMap draws Indonesian
+  province boundaries out into the territorial sea, so its polygons are often
+  mostly water (Kepulauan Riau's is 97% sea, Maluku's 92%), and a map of them
+  has no coastline. A province's geometry here is the union of its regencies,
+  which are land. Bounding boxes and label points follow. Regencies,
+  districts and villages are published as OpenStreetMap has them.
+- **`simplified` is for drawing.** It keeps a small fraction of the points, and province outlines leave out islands under about 5 km²; the median area
   error against `full` is 0.4%, and a village a hundred metres across can be
   off by more. Simplification is per ring, so a border shared by two regions can
   show a hairline gap. Tiny islands are kept.
@@ -213,6 +219,8 @@ level loses more than 2% of its regions.
    province contains are dropped (the extracts include parts of Malaysia,
    Thailand and the Philippines), and so are orphans: regions inside a province
    that nothing within a skipped level contains.
+   Province polygons are then replaced by the union of their regencies (shared
+   borders cancel exactly, so no clipping library is needed).
 4. **validate** re-reads the files and checks them independently of the build:
    file layout against the index, referential integrity, children counts,
    ancestor chains, geometry validity and bounds, manifest counts.
