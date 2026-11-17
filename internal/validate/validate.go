@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sort"
 	"strconv"
@@ -92,6 +93,11 @@ const (
 	minLon, maxLon = 94.0, 142.0
 	minLat, maxLat = -12.0, 7.0
 )
+
+// maxSkippedLevels mirrors hierarchy.maxSkippedLevels: the emitted dataset
+// attaches a region to a parent at most one level above the one directly above
+// it. A village filed under a province skips two and is invalid.
+const maxSkippedLevels = 1
 
 type validator struct {
 	opt Options
@@ -286,8 +292,11 @@ func (v *validator) checkIndex(files map[string]*fileEntries) {
 			p, ok := byID[fe.parent]
 			if !ok {
 				v.errorf("parent-missing", path, "parent %d is not in the index", fe.parent)
-			} else if p.AdminLevel >= int(fe.level) {
+			} else if gap := int(fe.level) - p.AdminLevel; gap <= 0 {
 				v.errorf("parent-level", path, "parent %d (%s) is level %d, not above level %d", p.OSMID, p.Name, p.AdminLevel, int(fe.level))
+			} else if gap > 1+maxSkippedLevels {
+				v.errorf("parent-level", path, "parent %d (%s) is level %d: %d levels skipped between it and level %d (at most %d allowed)",
+					p.OSMID, p.Name, p.AdminLevel, gap-1, int(fe.level), maxSkippedLevels)
 			} else if got := p.Counts[fe.level.Plural()]; got != len(fe.entries) {
 				v.errorf("children-count", "index/"+rel, "parent %d says %d %s, file has %d", p.OSMID, got, fe.level.Plural(), len(fe.entries))
 			}
@@ -423,6 +432,7 @@ func (v *validator) checkGeoFile(tier, rel string, fe *fileEntries) {
 		if n, _ := f.Properties["osm_id"].(float64); int64(n) != want.OSMID {
 			v.errorf("geojson-id", path, "feature %d: properties.osm_id %v, index says %d", i, f.Properties["osm_id"], want.OSMID)
 		}
+		v.checkFeatureProperties(path, i, f, &want)
 		if f.Geometry == nil {
 			v.errorf("geometry", path, "%d (%s): geometry is %q", want.OSMID, want.Name, f.GeometryType)
 			continue
@@ -434,6 +444,30 @@ func (v *validator) checkGeoFile(tier, rel string, fe *fileEntries) {
 		if bd := f.Geometry.Bound(); math.IsNaN(bd.Min[0]) || bd.Min[0] < minLon || bd.Max[0] > maxLon || bd.Min[1] < minLat || bd.Max[1] > maxLat {
 			v.errorf("geometry-bounds", path, "%d (%s): bound %v is outside Indonesia", want.OSMID, want.Name, bd)
 		}
+	}
+}
+
+// checkFeatureProperties makes sure a geometry feature carries the same
+// identity and hierarchy properties as the index entry it accompanies. A
+// client that fetches the index and the geometry separately must see one
+// consistent dataset; checking only the id (as above) would let level,
+// admin_level, parent_id or ancestors drift apart between the two tiers.
+func (v *validator) checkFeatureProperties(path string, i int, f *geojson.Feature, want *emit.IndexEntry) {
+	b, err := json.Marshal(f.Properties)
+	if err != nil {
+		v.errorf("feature-properties", path, "feature %d: cannot read properties: %v", i, err)
+		return
+	}
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	var props emit.Properties
+	if err := dec.Decode(&props); err != nil {
+		v.errorf("feature-properties", path, "feature %d: bad properties: %v", i, err)
+		return
+	}
+	if !reflect.DeepEqual(props, want.Properties) {
+		v.errorf("feature-properties", path, "%d (%s): feature properties %+v do not match index entry %+v",
+			want.OSMID, want.Name, props, want.Properties)
 	}
 }
 

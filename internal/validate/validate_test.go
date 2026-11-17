@@ -16,23 +16,44 @@ import (
 
 func p(x0, y0, x1, y1 float64) orb.Polygon { return orb.Polygon{Rect(x0, y0, x1, y1)} }
 
+func source() emit.Source {
+	return emit.Source{
+		Name: "OpenStreetMap", Provider: "Geofabrik", Timestamp: "2026-11-14T00:00:00Z",
+		Extracts: []emit.Extract{{File: "x.osm.pbf", SHA256: "abc", Timestamp: "2026-11-14T00:00:00Z"}},
+	}
+}
+
+// writeTree emits tree into a temp dir, with provenance so the manifest is valid.
+func writeTree(t *testing.T, tree *hierarchy.Tree) string {
+	t.Helper()
+	dir := t.TempDir()
+	if _, err := emit.Write(tree, emit.Options{Dir: dir, Source: source()}); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
 // build writes a valid three-level dataset into a temp dir.
 func build(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
 	tree := hierarchy.Build([]*model.Region{
 		Region(1, model.Province, "Jawa Barat", "32", p(100, -8, 110, 0)),
 		Region(2, model.Regency, "Kota Bandung", "32.73", p(101, -7, 105, -3)),
 		Region(3, model.District, "Antapani", "32.73.01", p(102, -6, 103, -5)),
 	})
-	src := emit.Source{
-		Name: "OpenStreetMap", Provider: "Geofabrik", Timestamp: "2026-11-14T00:00:00Z",
-		Extracts: []emit.Extract{{File: "x.osm.pbf", SHA256: "abc", Timestamp: "2026-11-14T00:00:00Z"}},
-	}
-	if _, err := emit.Write(tree, emit.Options{Dir: dir, Source: src}); err != nil {
-		t.Fatal(err)
-	}
-	return dir
+	return writeTree(t, tree)
+}
+
+// buildFour writes a valid four-level dataset and returns its tree, so tests
+// can reparent a region before emitting it.
+func buildFour(t *testing.T) *hierarchy.Tree {
+	t.Helper()
+	return hierarchy.Build([]*model.Region{
+		Region(1, model.Province, "Jawa Barat", "32", p(100, -8, 110, 0)),
+		Region(2, model.Regency, "Kota Bandung", "32.73", p(101, -7, 105, -3)),
+		Region(3, model.District, "Antapani", "32.73.01", p(102, -6, 103, -5)),
+		Region(4, model.Village, "Cicendo", "32.73.01.1001", p(102.2, -5.8, 102.8, -5.2)),
+	})
 }
 
 func checks(r *Result, sev Severity) []string {
@@ -114,6 +135,56 @@ func TestDetectsBrokenDatasets(t *testing.T) {
 			}
 			t.Errorf("expected an error from check %q, got %v", tt.want, got)
 		})
+	}
+}
+
+// A feature's properties must agree with the index entry it accompanies.
+// Clients read the index and the geometry separately, so a mismatch is a real
+// data-contract bug even when both files are individually well formed.
+func TestDetectsFeaturePropertyMismatch(t *testing.T) {
+	tests := []struct {
+		name string
+		old  string
+		new  string
+	}{
+		{"level", `"level":"regency"`, `"level":"village"`},
+		{"admin level", `"admin_level":5`, `"admin_level":7`},
+		{"parent", `"parent_id":1`, `"parent_id":999`},
+		{"ancestors", `"ancestors":[1]`, `"ancestors":[1,2]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := build(t)
+			replace(t, dir, "full/regencies/1.geojson", tt.old, tt.new)
+			res, err := Run(Options{Dir: dir})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !contains(checks(res, Error), "feature-properties") {
+				t.Errorf("expected a feature-properties error, got %+v", res.Findings)
+			}
+		})
+	}
+}
+
+// The hierarchy allows at most one skipped level (maxSkippedLevels in the
+// hierarchy package). A village parented straight to a province skips two and
+// must be rejected, even though all the parent ids and counts are consistent.
+func TestDetectsParentSkippingTwoLevels(t *testing.T) {
+	tree := buildFour(t)
+	v := tree.ByID[4]
+	v.ParentID = 1
+	v.Ancestors = []int64{1}
+	tree.Children[3] = nil
+	tree.Children[1] = append(tree.Children[1], v)
+	dir := writeTree(t, tree)
+
+	res, err := Run(Options{Dir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(checks(res, Error), "parent-level") {
+		t.Errorf("expected a parent-level error for a village parented to a province, got %+v", res.Findings)
 	}
 }
 
