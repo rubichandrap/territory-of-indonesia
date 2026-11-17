@@ -20,3 +20,23 @@ jobs:
         run: test -z "$(gofmt -l .)"
       - run: go vet ./...
       - run: go test -race ./...
+
+  models:
+    name: model contracts (Dart + TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Official dart-lang/setup-dart; the sdk input accepts an exact version.
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.14.1'
+      - name: Dart analyze
+        run: dart analyze types/territory.dart types/territory_test.dart
+      - name: Dart model tests (real release fixtures)
+        run: dart types/territory_test.dart
+      - name: TypeScript strict compile
+        run: npx --yes --package typescript@5.9.3 tsc --strict --target es2020 --module commonjs --moduleResolution node --noEmit types/territory.test.ts
+      - name: TypeScript runtime checks
+        run: |
+          npx --yes --package typescript@5.9.3 tsc --strict --target es2020 --module commonjs --moduleResolution node --outDir "$RUNNER_TEMP/ts-test" types/territory.test.ts
+          node "$RUNNER_TEMP/ts-test/territory.test.js"
