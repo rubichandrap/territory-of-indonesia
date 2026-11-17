@@ -178,6 +178,58 @@ func TestBuildIsDeterministic(t *testing.T) {
 	}
 }
 
+// Regression for the v1 finding where Kampar Regency was filed directly under
+// the country instead of its province, so the province index could not reach
+// it or its districts. In v2 only levels 4-7 are published and provinces are
+// roots, so a country-level region that geometrically contains everything is
+// ignored: it can never become a parent, and the Kampar chain stays reachable.
+// Geometry below is synthetic; the names and ids echo the real case only to
+// make the failure concrete.
+func TestBuildNeverParentsARegencyToCountry(t *testing.T) {
+	country := &model.Region{
+		OSMID:    100,
+		Level:    2, // admin_level 2 is not published
+		Name:     "Country",
+		Geometry: poly(-10, -10, 200, 200),
+	}
+	prov := Region(2390840, model.Province, "Riau", "14", poly(0, 0, 100, 100))
+	prov.ISO3166_2 = "ID-RI"
+	reg := Region(7830592, model.Regency, "Kampar", "14.01", poly(10, 10, 50, 50))
+	dist := Region(19390620, model.District, "Bangkinang", "14.01.01", poly(20, 20, 30, 30))
+
+	tree := Build([]*model.Region{country, dist, reg, prov}) // country deliberately first
+
+	if _, kept := tree.ByID[country.OSMID]; kept {
+		t.Error("a country-level region must not be kept in the tree")
+	}
+	if len(tree.Regions) != 3 {
+		t.Fatalf("kept %d regions, want 3 (province, regency, district)", len(tree.Regions))
+	}
+	if reg.ParentID != prov.OSMID {
+		t.Errorf("Kampar parent = %d, want Riau (%d), never the country", reg.ParentID, prov.OSMID)
+	}
+	if want := []int64{prov.OSMID}; !equal(reg.Ancestors, want) {
+		t.Errorf("Kampar ancestors = %v, want %v", reg.Ancestors, want)
+	}
+
+	// The whole chain must stay reachable from the province root down.
+	if got := tree.Children[0]; len(got) != 1 || got[0] != prov {
+		t.Errorf("regions under 0 = %v, want only Riau", got)
+	}
+	if got := tree.Children[prov.OSMID]; len(got) != 1 || got[0] != reg {
+		t.Errorf("Riau's children = %v, want Kampar", got)
+	}
+	if got := tree.Children[reg.OSMID]; len(got) != 1 || got[0] != dist {
+		t.Errorf("Kampar's children = %v, want its district", got)
+	}
+	if want := []int64{prov.OSMID, reg.OSMID}; !equal(dist.Ancestors, want) {
+		t.Errorf("district ancestors = %v, want %v", dist.Ancestors, want)
+	}
+	if len(tree.Issues) != 0 {
+		t.Errorf("unexpected issues: %+v", tree.Issues)
+	}
+}
+
 func equal(a, b []int64) bool {
 	if len(a) != len(b) {
 		return false
