@@ -30,8 +30,34 @@ List<dynamic> readJsonList(String name) {
   return jsonDecode(file.readAsStringSync()) as List<dynamic>;
 }
 
-/// A JSON value is round-trippable when decoding it, encoding the typed model,
-/// decoding that encoding again and re-encoding gives identical JSON.
+/// Recursive semantic JSON equality: object key order is irrelevant and a
+/// whole JSON number written as an int equals the same value written as a
+/// double (the emitter may write `113` where toJson writes `113.0`).
+bool jsonEqual(Object? a, Object? b) {
+  if (a is num && b is num) {
+    if (a is int && b is int) return a == b;
+    return a.toDouble() == b.toDouble();
+  }
+  if (a is Map && b is Map) {
+    if (a.length != b.length) return false;
+    for (final key in a.keys) {
+      if (!b.containsKey(key) || !jsonEqual(a[key], b[key])) return false;
+    }
+    return true;
+  }
+  if (a is List && b is List) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!jsonEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  return a == b;
+}
+
+/// Decoding and re-encoding must reproduce the original JSON semantically, and
+/// a second decode/encode cycle must be stable. Comparing only the first and
+/// second encodings would let a decoder that silently drops a field pass.
 void roundTrip<T>(
   Object? original,
   T Function(Object? json) decode,
@@ -40,10 +66,14 @@ void roundTrip<T>(
 ) {
   final once = decode(original);
   final onceJson = encode(once);
+  check(
+    jsonEqual(original, onceJson),
+    '$label: decode/toJson changed or lost data from the original JSON',
+  );
   final twice = decode(jsonDecode(jsonEncode(onceJson)));
   final twiceJson = encode(twice);
   check(
-    jsonEncode(onceJson) == jsonEncode(twiceJson),
+    jsonEqual(onceJson, twiceJson),
     '$label: toJson is not stable across a round trip',
   );
 }
@@ -231,7 +261,45 @@ bool _deepContainsKey(Object? value, String key) {
   return false;
 }
 
+/// Negative control: a missing optional key and a reordered object with
+/// int/double-equivalent numbers must be treated differently.
+void testRoundTripDetectsDataLoss() {
+  final Map<String, dynamic> original = <String, dynamic>{
+    'osm_id': 1,
+    'level': 'village',
+    'admin_level': 7,
+    'name': 'x',
+    'wikidata': 'Q1',
+  };
+  final dropped = Map<String, dynamic>.from(original)..remove('wikidata');
+  check(!jsonEqual(original, dropped), 'semantic equality must catch a missing optional key');
+  check(
+    jsonEqual(original, <String, dynamic>{
+      'name': 'x',
+      'wikidata': 'Q1',
+      'level': 'village',
+      'admin_level': 7.0,
+      'osm_id': 1.0,
+    }),
+    'semantic equality must ignore key order and int/double differences',
+  );
+
+  var threw = false;
+  try {
+    roundTrip<Map<String, dynamic>>(
+      original,
+      (json) => Map<String, dynamic>.from(json as Map),
+      (value) => value..remove('wikidata'),
+      'negative control',
+    );
+  } on StateError {
+    threw = true;
+  }
+  check(threw, 'roundTrip must fail when the encoder drops a field');
+}
+
 void main() {
+  testRoundTripDetectsDataLoss();
   testSnakeCaseKeys();
   testPolygon();
   testMultiPolygon();
