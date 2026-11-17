@@ -1,0 +1,58 @@
+{
+  "schema_version": 2,
+  "source": {
+    "name": "OpenStreetMap",
+    "provider": "Geofabrik",
+    "osm_timestamp": "2026-11-15T21:22:28Z",
+    "extracts": [
+      {
+        "file": "indonesia-261115.osm.pbf",
+        "url": "https://download.geofabrik.de/asia/indonesia-261115.osm.pbf",
+        "sha256": "ee632bd67ae9e912eca874bba92c048610f32632f33bb788ba17ab5655c43e32",
+        "osm_timestamp": "2026-11-15T21:22:28Z"
+      },
+      {
+        "file": "malaysia-singapore-brunei-261115.osm.pbf",
+        "url": "https://download.geofabrik.de/asia/malaysia-singapore-brunei-261115.osm.pbf",
+        "sha256": "1fd8f6c9509d6b47085512845b1a79e4433c3973f2d780a49061880998a6d404",
+        "osm_timestamp": "2026-11-15T21:22:28Z"
+      }
+    ]
+  },
+  "tool": "toi dev (8190ca1)",
+  "counts": {
+    "districts": 2180,
+    "provinces": 38,
+    "regencies": 514,
+    "villages": 6555
+  },
+  "tiers": {
+    "full": {
+      "dir": "full",
+      "description": "GeoJSON with the geometry exactly as assembled from OpenStreetMap.",
+      "files": 971,
+      "bytes": 236793102
+    },
+    "index": {
+      "dir": "index",
+      "description": "Properties, bounding box and a label point for every region; no geometry. Use it to fill dropdowns.",
+      "files": 971,
+      "bytes": 2370273
+    },
+    "simplified": {
+      "dir": "simplified",
+      "description": "GeoJSON with Douglas-Peucker simplified geometry, for drawing maps. Shared borders are not guaranteed to match exactly, and province outlines leave out islands smaller than about 5 km2.",
+      "decimals": 5,
+      "simplify_tolerance_degrees": {
+        "districts": 0.001,
+        "provinces": 0.008,
+        "regencies": 0.002,
+        "villages": 0.0005
+      },
+      "files": 971,
+      "bytes": 15040567
+    }
+  },
+  "license": "ODbL-1.0",
+  "attribution": "© OpenStreetMap contributors"
+}
